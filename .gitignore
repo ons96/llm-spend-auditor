@@ -1,0 +1,4 @@
+data/prices.db
+data/*.tmp
+__pycache__/
+.pytest_cache/

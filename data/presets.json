@@ -1,0 +1,12 @@
+[
+  {"id": "solo-dev-coding", "label": "Solo dev, AI coding agent", "monthly_input_m": 60, "monthly_output_m": 6, "needs": ["coding"], "current_model": "claude-sonnet-4-5"},
+  {"id": "startup-chatbot", "label": "Startup support chatbot", "monthly_input_m": 200, "monthly_output_m": 40, "needs": [], "current_model": "gpt-4o"},
+  {"id": "agency-content", "label": "Marketing agency content gen", "monthly_input_m": 30, "monthly_output_m": 25, "needs": [], "current_model": "gpt-4o"},
+  {"id": "data-team-extraction", "label": "Data team document extraction", "monthly_input_m": 500, "monthly_output_m": 20, "needs": ["long_context"], "current_model": "gpt-4o"},
+  {"id": "rag-search", "label": "Internal RAG search", "monthly_input_m": 300, "monthly_output_m": 15, "needs": ["long_context"], "current_model": "claude-sonnet-4-5"},
+  {"id": "coding-team-10", "label": "10-dev team, coding assistants", "monthly_input_m": 600, "monthly_output_m": 60, "needs": ["coding"], "current_model": "claude-sonnet-4-5"},
+  {"id": "classifier-bulk", "label": "Bulk ticket classification", "monthly_input_m": 1000, "monthly_output_m": 5, "needs": [], "current_model": "gpt-4o-mini"},
+  {"id": "summarizer-daily", "label": "Daily meeting/email summaries", "monthly_input_m": 80, "monthly_output_m": 8, "needs": ["long_context"], "current_model": "gpt-4o"},
+  {"id": "translation", "label": "Product catalog translation", "monthly_input_m": 50, "monthly_output_m": 55, "needs": [], "current_model": "gpt-4o"},
+  {"id": "hobbyist", "label": "Hobbyist side project", "monthly_input_m": 3, "monthly_output_m": 0.5, "needs": [], "current_model": "gpt-4o-mini"}
+]
