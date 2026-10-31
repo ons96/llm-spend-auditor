@@ -16,3 +16,16 @@ def test_picks_cheaper_model_above_floor():
 
 def test_needs_filter():
     assert audit(dict(W, needs=["long_context"]), P)["alternatives"] == []
+
+
+def test_all_presets_run():
+    import json, os
+    from audit import load_prices, PRESETS, PRICES_DB
+    if not os.path.exists(PRICES_DB):
+        return  # ponytail: needs etl.py output; skip in clean checkout
+    prices = load_prices()
+    for w in json.load(open(PRESETS)):
+        r = audit(w, prices)
+        assert r["current_cost"] > 0
+        for a in r["alternatives"]:
+            assert a["monthly_cost"] < r["current_cost"]

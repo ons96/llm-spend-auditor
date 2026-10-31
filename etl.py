@@ -17,7 +17,7 @@ CODING_SCORE = 50.0        # avg_agentic_coding_score threshold
 
 SELECT = """select model_id, provider_name, provider_model_id,
     input_cost_per_token, output_cost_per_token, is_free_tier,
-    context_window_tokens, avg_agentic_coding_score, last_updated
+    context_window_tokens, avg_agentic_coding_score, avg_reasoning_chat_score, last_updated
     from model_providers where mode = 'chat'"""
 
 
@@ -47,17 +47,17 @@ def run(src=DEFAULT_SRC, out=DEFAULT_OUT):
     db = sqlite3.connect(tmp)
     db.execute("""create table prices (model_id text, provider text,
         provider_model_id text, input_per_m real, output_per_m real,
-        is_free int, context_window int, coding_score real, tags text,
+        is_free int, context_window int, coding_score real, chat_score real, tags text,
         last_updated text)""")
     keep = []
-    for mid, prov, pmid, inp, outp, free, ctx, score, upd in rows:
+    for mid, prov, pmid, inp, outp, free, ctx, score, chat, upd in rows:
         # ponytail: zero cost without free flag = unknown pricing, dropped
         if inp is None or outp is None or (not free and inp == 0 and outp == 0):
             continue
         keep.append((mid, prov, pmid, round(inp * 1e6, 6), round(outp * 1e6, 6),
-                     1 if free else 0, ctx, score,
+                     1 if free else 0, ctx, score, chat,
                      tags_for((inp, outp, free, ctx, score)), upd))
-    db.executemany("insert into prices values (?,?,?,?,?,?,?,?,?,?)", keep)
+    db.executemany("insert into prices values (?,?,?,?,?,?,?,?,?,?,?)", keep)
     db.execute("create index ix_model on prices(model_id)")
     db.commit()
     db.close()
