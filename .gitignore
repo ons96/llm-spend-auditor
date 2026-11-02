@@ -2,3 +2,4 @@ data/prices.db
 data/*.tmp
 __pycache__/
 .pytest_cache/
+data/litellm_cache.json
