@@ -21,20 +21,11 @@ normalized index and shows the quality delta next to every dollar figure.
 
 ## Current state
 
-Recent commits (newest first):
+The full history is in git; run `git log --oneline -10` from the repo root
+rather than trusting a hash list copied into this file.
 
-```
-1132414  docs: writeup, outreach drafts, resolved decisions
-743a209  test: add browser smoke test and ui-check workflow
-7844c91  feat: prefill audit requests and show all options
-d7aeeb0  ci: refresh AA scores and prices weekly
-c60dd4a  docs: self-audit of my own gateway telemetry
-beaed7a  feat: price date, audit CTA, responsive table
-0259a93  docs: weekend 3 handoff and live URL
-```
-
-The current HANDOFF is itself the latest docs commit. 24 Python tests pass,
-plus a committed browser smoke test. Run from the repo root:
+35 Python tests pass, plus a committed browser smoke test on three engines.
+Run from the repo root:
 
 ```
 python3 -m pytest -q
@@ -52,8 +43,9 @@ Files:
 | `data/presets.json` | 10 example workloads |
 | `data/prices.json` | Exported price table for the UI (committed, 231 KB) |
 | `data/aa_scores.json` | Scraped AA index (committed, with `scraped_at`) |
-| `tests/` | 24 tests, including node parity and the request report CLI |
+| `tests/` | 35 tests: node parity, request report CLI, AA scraper |
 | `requirements.txt`, `requirements-dev.txt` | Python deps: bs4 + lxml, plus pytest |
+| `LICENSE` | MIT |
 | `docs/self-audit-2026-11.md` | Weekend 4 self-audit on real gateway telemetry |
 | `docs/writeup.md` | Portfolio writeup: method, rules, limits |
 | `docs/AUDIT_PLAYBOOK.md` | Recruit, run, anonymize and publish external audits |
@@ -239,6 +231,11 @@ Do not silently revert these. Each one cost a debugging cycle.
     prompts or outputs. Three completed rows is the Weekend 4 target; do not
     pad the sample with audits that were never run.
 
+24. **The code is MIT.** The owner approved it on 2026-11-02; without a license
+    a public repo is "all rights reserved" and portfolio readers cannot reuse
+    anything. Keep the copyright line as `ons96`, and do not relicense without
+    the owner.
+
 ## The 17 scored models (AA index | $/M in | $/M out)
 
 ```
@@ -273,10 +270,12 @@ points for double the price.
   gemini-4-carbon, qwen3-8-max, kimi-k3-1-pro, minimax-m3-1-flash). Public
   price feeds lag open-model releases by weeks. This is accepted, not a bug.
   Frame it as "17 verified" rather than "1,879 available".
-- **Browser coverage is Chromium only.** The committed smoke test uses
-  Playwright's Chromium; Safari and Firefox are unverified. It checks wiring
-  and layout overflow, not pixel rendering, so a CSS regression that keeps
-  elements visible can still slip through.
+- **Browser coverage is Chromium, Firefox and WebKit in CI only.** The smoke
+  test drives all three; `ui-check` installs WebKit's system libraries. Local
+  WebKit runs need `npx playwright install --with-deps webkit`, or limit with
+  `UI_BROWSERS=chromium,firefox`. The test checks wiring and layout overflow,
+  not pixel rendering, so a CSS regression that keeps elements visible can
+  still slip through.
 - **Playwright is a dev dependency, not part of the site.** `node_modules` is
   gitignored; the deployed page still has no build step. If the browser test
   fails in CI, fix the page, not the test.
@@ -341,7 +340,7 @@ Live: https://ons96.github.io/llm-spend-auditor/ (Pages: branch `master`, root).
    keys or prompts. Linked from the page and the README.
 5. **Optional polish: done.** Full option list toggle, Open Graph tags,
    axe-core pass (zero violations at desktop, mobile and dark), and the
-   browser smoke test committed to CI.
+   browser smoke test committed to CI on Chromium, Firefox and WebKit.
 
 ## Style rules for whoever continues
 

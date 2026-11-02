@@ -54,8 +54,12 @@ of local JSON; serve the folder instead. Node is only needed for the tests: the
 Python parity test skips without it, and the browser smoke test is dev-only.
 
     npm ci
-    npx playwright install chromium
+    npx playwright install chromium firefox webkit
     npm run test:ui                 # presets, toggle, hash, mobile, dark, CTA
+
+The smoke test runs on Chromium, Firefox and WebKit. On Linux, WebKit needs
+system libraries: use `npx playwright install --with-deps webkit` (as CI does)
+or limit the run with `UI_BROWSERS=chromium,firefox npm run test:ui`.
 
 ## Regenerate the dataset
 
@@ -85,3 +89,7 @@ not send API keys, prompts or customer data; the numbers are enough.
 Background on the method and its limits: [`docs/writeup.md`](docs/writeup.md).
 The intake and reply flow is in [`docs/AUDIT_PLAYBOOK.md`](docs/AUDIT_PLAYBOOK.md);
 a request is answered with `python3 audit_request.py --url "<share link>"`.
+
+## License
+
+MIT, see [`LICENSE`](LICENSE).
