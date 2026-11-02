@@ -24,16 +24,17 @@ normalized index and shows the quality delta next to every dollar figure.
 Recent commits (newest first):
 
 ```
+1132414  docs: writeup, outreach drafts, resolved decisions
+743a209  test: add browser smoke test and ui-check workflow
+7844c91  feat: prefill audit requests and show all options
 d7aeeb0  ci: refresh AA scores and prices weekly
 c60dd4a  docs: self-audit of my own gateway telemetry
 beaed7a  feat: price date, audit CTA, responsive table
 0259a93  docs: weekend 3 handoff and live URL
-17af0fd  feat: static audit UI for GitHub Pages
-0470213  fix: regenerate prices.json with key-tail slugs
 ```
 
-The current HANDOFF is itself the latest docs commit. 15 tests pass. Run from
-the repo root:
+The current HANDOFF is itself the latest docs commit. 15 Python tests pass,
+plus a committed browser smoke test. Run from the repo root:
 
 ```
 python3 -m pytest -q
@@ -53,8 +54,13 @@ Files:
 | `data/aa_scores.json` | Scraped AA index (committed, with `scraped_at`) |
 | `tests/` | 15 tests, including a node parity check for the UI math |
 | `docs/self-audit-2026-11.md` | Weekend 4 self-audit on real gateway telemetry |
-| `QUESTIONS.md` | Decisions that need the owner (accounts, naming, review) |
+| `docs/writeup.md` | Portfolio writeup: method, rules, limits |
+| `docs/outreach.md` | Reddit/Discord drafts, not posted |
+| `QUESTIONS.md` | Decisions and the one open item (external audits) |
+| `tests/browser/smoke.mjs` | Playwright smoke test for the page |
+| `package.json`, `package-lock.json` | Dev-only Playwright dependency |
 | `.github/workflows/refresh-data.yml` | Weekly AA + price refresh, tested before commit |
+| `.github/workflows/ui-check.yml` | Browser smoke test + pytest on push |
 | `.github/ISSUE_TEMPLATE/audit-request.md` | Free-audit intake, token counts only |
 
 `data/prices.db` and `data/litellm_cache.json` are gitignored (regenerated).
@@ -72,7 +78,9 @@ slug logic. `audit.py --export` also stamps `generated_at` (UTC date) into
 `data/prices.json`, which the page shows as the price half of its freshness
 line. The weekly workflow runs the same three commands and commits when the
 data moved. Verified by manual dispatch on 2026-11-02: every step passed and
-no data changed, including the AA scrape from a GitHub runner.
+no data changed, including the AA scrape from a GitHub runner. A separate
+push-triggered workflow (`ui-check.yml`) runs the browser smoke test and
+pytest whenever the page, data or tests change.
 
 ## Data sources
 
@@ -191,6 +199,29 @@ Do not silently revert these. Each one cost a debugging cycle.
     delta.** Savings and `score_delta` stay on the phone view; the AA score and
     verdict are redundant there. The honesty rule outranks the column count.
 
+18. **Provider names mean two different things; keep them separate.** The
+    self-audit omits the gateway's provider ids on the owner's instruction
+    (`QUESTIONS.md`). The UI's Provider column shows LiteLLM catalog providers
+    (anthropic, azure_ai, fireworks_ai) because the median price is computed
+    across them and the reader needs to see which offer is being quoted. Do not
+    "clean up" the UI by removing it, and do not add gateway provider ids to
+    the self-audit.
+
+19. **The audit request is prefilled, not just a link to a template.** Model,
+    token volumes, needs and the share URL are encoded into the issue body. It
+    still requires a GitHub account, and the copy says so after a first draft
+    wrongly claimed "no accounts". Keep that claim accurate.
+
+20. **"Show all" is a toggle, default three.** Hiding every option after three
+    was an arbitrary limit; `gpt-6-astra` has more than a dozen. All rows carry
+    the delta in both states, and the toggle never changes the audit math.
+
+21. **The browser test checks wiring, the node test checks the math.**
+    `tests/browser/smoke.mjs` drives real Chromium over all 10 presets, the
+    toggle, error paths, hash restore, mobile overflow, dark mode and CTA
+    prefill. Do not replace it with a second parity test, and do not let the
+    node parity test be deleted because the browser test passes.
+
 ## The 17 scored models (AA index | $/M in | $/M out)
 
 ```
@@ -225,10 +256,13 @@ points for double the price.
   gemini-4-carbon, qwen3-8-max, kimi-k3-1-pro, minimax-m3-1-flash). Public
   price feeds lag open-model releases by weeks. This is accepted, not a bug.
   Frame it as "17 verified" rather than "1,879 available".
-- **The UI is verified at the math layer, not in a real browser.** jsdom ran
-  the page for all 10 presets and the edge paths (hash restore, unscored
-  model, unknown model, zero tokens); layout and CSS were inspected by reading
-  the file. There is no visual regression test.
+- **Browser coverage is Chromium only.** The committed smoke test uses
+  Playwright's Chromium; Safari and Firefox are unverified. It checks wiring
+  and layout overflow, not pixel rendering, so a CSS regression that keeps
+  elements visible can still slip through.
+- **Playwright is a dev dependency, not part of the site.** `node_modules` is
+  gitignored; the deployed page still has no build step. If the browser test
+  fails in CI, fix the page, not the test.
 - **`index.html` must be served over http(s).** `file://` blocks `fetch` of the
   local JSON. The page catches that and prints the `python3 -m http.server`
   command instead of showing empty results.
@@ -277,12 +311,18 @@ Live: https://ons96.github.io/llm-spend-auditor/ (Pages: branch `master`, root).
    $0 recorded spend, 4.9% with token counts, 0.011% of measured tokens on a
    scored model. The auditor refuses to recommend for the real top model.
 2. **Three external anonymized audits: not done.** Recruiting needs the
-   owner's accounts and identity on r/LocalLLaMA and dev Discords. The CTA and
-   issue template are live so requests can arrive without posting.
-3. **Writeup: self-audit done, broader writeup pending.** The self-audit is
-   publishable now; the comparative writeup should wait for external requests.
-4. **"Book a free audit" CTA: live.** GitHub issues, token counts only, no keys
-   or prompts. Linked from the page and the README.
+   owner's accounts and identity on r/LocalLLaMA and dev Discords. Drafts are
+   in `docs/outreach.md`; the CTA and issue template are live so requests can
+   arrive without posting. `QUESTIONS.md` is the only open item.
+3. **Writeup: done.** `docs/writeup.md` is the broader piece (method, three
+   rules, self-audit findings, limits); `docs/self-audit-2026-11.md` is the
+   data. A comparative writeup still waits for external requests.
+4. **"Book a free audit" CTA: live and prefilled.** GitHub issues with model,
+   token counts, needs and the share URL in the body; token counts only, no
+   keys or prompts. Linked from the page and the README.
+5. **Optional polish: done.** Full option list toggle, Open Graph tags,
+   axe-core pass (zero violations at desktop, mobile and dark), and the
+   browser smoke test committed to CI.
 
 ## Style rules for whoever continues
 
