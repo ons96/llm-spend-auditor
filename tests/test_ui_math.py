@@ -7,6 +7,7 @@ Skipped when node is absent; the rest of the suite still runs.
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 
@@ -152,6 +153,7 @@ def test_shipped_export_matches_current_etl():
     """
     doc = json.load(open(os.path.join(ROOT, "data", "prices.json")))
     assert doc["cols"] == audit.EXPORT_COLS
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", doc["generated_at"]), doc.get("generated_at")
     assert doc["rows"]
     ids = {row[0] for row in doc["rows"]}
     assert not [i for i in ids if "/" in i]

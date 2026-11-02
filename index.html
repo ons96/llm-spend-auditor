@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LLM Spend Auditor - cheaper models, honest quality deltas</title>
 <meta name="description" content="Audit an LLM bill: current monthly cost, cheaper models that meet the same needs, and the Artificial Analysis intelligence points each saving costs. All math runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f52d0'/%3E%3Crect x='7' y='17' width='4' height='9' fill='white'/%3E%3Crect x='14' y='12' width='4' height='14' fill='white'/%3E%3Crect x='21' y='7' width='4' height='19' fill='white'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #f6f7f9;
@@ -122,15 +123,23 @@
   .card-sub { margin-top: 8px; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
   .card-sub code { font-family: var(--mono); color: var(--ink); }
   .table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  caption { text-align: left; padding: 16px 18px 4px; font-size: 13px; color: var(--muted); }
-  th, td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  .table-intro { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+  th, td { padding: 10px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
   th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: 0; }
   tr.current { background: var(--current-bg); }
   tr.current td { font-weight: 600; }
-  td.model { font-family: var(--mono); font-size: 13px; }
+  td.model { font-family: var(--mono); font-size: 12.5px; white-space: normal; overflow-wrap: anywhere; min-width: 150px; }
+  .td-sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--muted); }
+  @media (max-width: 720px) {
+    th.col-price, td.col-price, th.col-verdict, td.col-verdict,
+    th.col-score, td.col-score { display: none; }
+    table { font-size: 12.5px; }
+    th, td { padding: 8px 6px; }
+    td.model { min-width: 0; }
+  }
   .delta { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .delta.neg { background: var(--warn-bg); color: var(--warn); }
   .delta.pos { background: var(--good-bg); color: var(--good); }
@@ -146,6 +155,21 @@
   @media (max-width: 720px) { .notes { grid-template-columns: 1fr; } }
   .notes h3 { margin: 0 0 6px; font-size: 14px; }
   .notes p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .cta { margin: 34px 0 0; padding: 22px 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .cta h2 { margin: 0 0 8px; font-size: 20px; letter-spacing: -0.01em; }
+  .cta p { margin: 0 0 16px; max-width: 66ch; font-size: 14px; color: var(--muted); }
+  a.button {
+    display: inline-block;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  @media (prefers-color-scheme: dark) { a.button { color: #0d1117; } }
+  a.button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); margin-left: 8px; }
   footer { margin: 44px 0 60px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
   footer p { margin: 0 0 6px; }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -206,6 +230,18 @@
     </section>
 
     <section class="results" id="results" aria-live="polite"></section>
+
+    <section class="cta" aria-labelledby="cta-heading">
+      <h2 id="cta-heading">Want your own bill audited?</h2>
+      <p>
+        Free, no accounts. Open an audit request with your monthly token counts,
+        current model and requirements; you get back a shareable report and a
+        short written audit. Do not paste API keys, prompts, invoices or
+        customer data - token counts and a model name are enough.
+      </p>
+      <a class="button" href="https://github.com/ons96/llm-spend-auditor/issues/new?template=audit-request.md">Request a free audit</a>
+      <a class="button ghost" href="https://github.com/ons96/llm-spend-auditor/blob/master/docs/self-audit-2026-11.md">Read the self-audit</a>
+    </section>
 
     <section class="notes" aria-label="Method and limits">
       <div>
@@ -282,7 +318,7 @@
   var copyState = $("copy-state");
   var checkboxes = {};
 
-  var data = { prices: [], presets: [], aa: null };
+  var data = { prices: [], presets: [], aa: null, generatedAt: null };
   var usd = new Intl.NumberFormat("en-US", {
     style: "currency", currency: "USD",
     minimumFractionDigits: 2, maximumFractionDigits: 2
@@ -332,6 +368,7 @@
       });
       data.presets = out[1];
       data.aa = out[2];
+      data.generatedAt = priceDoc.generated_at || null;
       buildControls();
       var start = fromHash() || presetWorkload(data.presets[0]);
       applyWorkload(start);
@@ -360,13 +397,14 @@
     var total = Object.keys(seen).length;
     var freeOnly = total - priced;
 
-    if (scraped) {
-      freshness.innerHTML = "Dataset last updated <b>" + esc(scraped) + "</b>" +
-        " (Artificial Analysis Intelligence Index scrape). Prices from the LiteLLM feed snapshot.";
-    } else {
-      freshness.innerHTML = "Dataset last updated <b>unknown</b>" +
-        " (the AA scrape wrote no date). Prices from the LiteLLM feed snapshot.";
-    }
+    var quality = scraped
+      ? "Dataset last updated <b>" + esc(scraped) + "</b> (Artificial Analysis scrape)"
+      : "Dataset last updated <b>unknown</b> (the AA scrape wrote no date)";
+    var prices = data.generatedAt
+      ? "LiteLLM price snapshot of <b>" + esc(data.generatedAt) + "</b>"
+      : "LiteLLM price snapshot of <b>unknown</b> date";
+    freshness.innerHTML = quality + ". " + prices +
+      ". Both are committed static files, not live calls.";
     coverage.innerHTML = "<b>" + scored + " verified</b> models (an AA score and a " +
       "published paid price) out of " + count.format(priced) + " paid models, from " +
       count.format(total) + " distinct model ids in the snapshot (" + freeOnly +
@@ -599,39 +637,39 @@
     }
     html += "</div>";
 
+    html += '<p class="table-intro">Monthly cost for your workload. Savings are ' +
+      'always paired with the AA index points they cost.</p>';
     html += '<div class="table-wrap"><table>';
-    html += "<caption>Monthly cost for your workload. Savings are always paired " +
-      "with the AA index points they cost.</caption>";
     html += "<thead><tr>" +
-      '<th scope="col">Model</th><th scope="col">Provider</th>' +
-      '<th scope="col" class="num">$/M in</th><th scope="col" class="num">$/M out</th>' +
+      '<th scope="col">Model</th>' +
+      '<th scope="col" class="num col-price">$/M in</th>' +
+      '<th scope="col" class="num col-price">$/M out</th>' +
       '<th scope="col" class="num">Monthly</th><th scope="col" class="num">Savings</th>' +
-      '<th scope="col" class="num">AA score</th><th scope="col" class="num">Quality vs current</th>' +
-      '<th scope="col">Verdict</th></tr></thead><tbody>';
+      '<th scope="col" class="num col-score">AA</th><th scope="col" class="num">Quality</th>' +
+      '<th scope="col" class="col-verdict">Verdict</th></tr></thead><tbody>';
 
-    html += '<tr class="current"><td class="model">' + esc(w.current_model) + "</td>" +
-      "<td>" + esc(res.current_provider) + "</td>" +
-      '<td class="num">' + price(res.current_input_per_m) + "</td>" +
-      '<td class="num">' + price(res.current_output_per_m) + "</td>" +
+    html += '<tr class="current"><td class="model">' + esc(w.current_model) +
+      '<span class="td-sub">' + esc(res.current_provider) + "</span></td>" +
+      '<td class="num col-price">' + price(res.current_input_per_m) + "</td>" +
+      '<td class="num col-price">' + price(res.current_output_per_m) + "</td>" +
       '<td class="num">' + money(res.current_cost) + "</td>" +
       '<td class="num muted">-</td>' +
-      '<td class="num">' + res.current_score + "</td>" +
+      '<td class="num col-score">' + res.current_score + "</td>" +
       '<td class="num muted">-</td>' +
-      '<td class="verdict">current</td></tr>';
+      '<td class="verdict col-verdict">current</td></tr>';
 
     res.alternatives.forEach(function (a) {
       var better = a.score_delta >= 0;
-      html += "<tr><td class=\"model\">" + esc(a.model_id) + "</td>" +
-        "<td>" + esc(a.provider) + "</td>" +
-        '<td class="num">' + price(a.input_per_m) + "</td>" +
-        '<td class="num">' + price(a.output_per_m) + "</td>" +
+      html += "<tr><td class=\"model\">" + esc(a.model_id) +
+        '<span class="td-sub">' + esc(a.provider) + "</span></td>" +
+        '<td class="num col-price">' + price(a.input_per_m) + "</td>" +
+        '<td class="num col-price">' + price(a.output_per_m) + "</td>" +
         '<td class="num">' + money(a.monthly_cost) + "</td>" +
-        '<td class="num">' + a.savings_pct.toFixed(1) + "% (" +
-          money(res.current_cost - a.monthly_cost) + ")</td>" +
-        '<td class="num">' + a.score + "</td>" +
+        '<td class="num">' + a.savings_pct.toFixed(1) + "%</td>" +
+        '<td class="num col-score">' + a.score + "</td>" +
         '<td class="num"><span class="delta ' + (better ? "pos" : "neg") + '">' +
           pts(a.score_delta) + "</span></td>" +
-        '<td class="verdict' + (better ? "" : " trade") + '">' +
+        '<td class="verdict col-verdict' + (better ? "" : " trade") + '">' +
           (better ? "same or better" : "trade-off") + "</td></tr>";
     });
 

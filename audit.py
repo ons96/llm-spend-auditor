@@ -11,6 +11,7 @@ import json
 import os
 import sqlite3
 import sys
+from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PRICES_DB = os.path.join(ROOT, "data", "prices.db")
@@ -94,8 +95,14 @@ def audit(w, prices, top=3):
 
 
 def export_json(prices, path=PRICES_JSON):
+    """Write the UI contract: cols, rows, plus the UTC date of this export.
+
+    generated_at is additive metadata, not a price column: the page shows it as
+    the price half of its freshness line, next to the AA scrape date.
+    """
     with open(path, "w") as f:
         json.dump({"cols": EXPORT_COLS,
+                   "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                    "rows": [[p[c] for c in EXPORT_COLS] for p in prices]},
                   f, separators=(",", ":"))
 
