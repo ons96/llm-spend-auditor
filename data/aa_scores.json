@@ -152,6 +152,14 @@
    "slug": "granite-4-2-3b",
    "variant": false
   },
+  "granite-4-2-8b": {
+   "aa_index": 5,
+   "context": "131k",
+   "creator": "IBM",
+   "name": "Granite 4.2 8B",
+   "slug": "granite-4-2-8b",
+   "variant": false
+  },
   "grok-4-7": {
    "aa_index": 35,
    "context": "500k",
@@ -280,6 +288,14 @@
    "slug": "muse-wonder-full",
    "variant": true
   },
+  "nanbeige4-3-33b": {
+   "aa_index": 20,
+   "context": "524k",
+   "creator": "Nanbeige",
+   "name": "Nanbeige4.3-33B",
+   "slug": "nanbeige4-3-33b",
+   "variant": false
+  },
   "nemotron-3-5-lightning": {
    "aa_index": 6,
    "context": "1M",
@@ -338,6 +354,6 @@
   }
  },
  "scraped_at": "2026-11-02",
- "scraped_rows": 86,
+ "scraped_rows": 90,
  "source": "https://artificialanalysis.ai/leaderboards/models"
 }
