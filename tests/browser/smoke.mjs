@@ -1,22 +1,28 @@
 /* Browser smoke test for the static UI.
  *
- * Serves this repo on a random port, drives Chromium, and checks that the page
- * renders what audit.js computes. Node and Playwright are test-only: the site
- * itself has no build step and no dependencies.
+ * Serves this repo on a random port, drives each requested engine, and checks
+ * that the page renders what audit.js computes. Node and Playwright are
+ * test-only: the site itself has no build step and no dependencies.
  *
- * Run: npm ci && npx playwright install chromium && npm run test:ui
+ * Run: npm ci && npx playwright install chromium firefox webkit && npm run test:ui
+ * Limit engines with UI_BROWSERS=chromium (useful where WebKit system libs are
+ * unavailable; CI installs them with --with-deps).
  */
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { chromium, firefox, webkit } from "playwright";
 
 const require = createRequire(import.meta.url);
 const here = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = resolve(here, "..", "..");
 const SpendAudit = require(join(ROOT, "audit.js"));
+
+const ENGINES = { chromium, firefox, webkit };
+const WANTED = (process.env.UI_BROWSERS || "chromium,firefox,webkit")
+  .split(",").map((name) => name.trim()).filter(Boolean);
 
 const read = (name) => readFile(join(ROOT, name), "utf8");
 const pricesDoc = JSON.parse(await read("data/prices.json"));
@@ -51,29 +57,9 @@ await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const BASE = `http://127.0.0.1:${server.address().port}/`;
 
 const failures = [];
-const check = (ok, message) => {
-  if (!ok) failures.push(message);
-};
+
 const money = (text) => Number(String(text).replace(/,/g, "").replace(/[^0-9.-]/g, ""));
 const closeTo = (a, b, tolerance = 0.011) => Math.abs(a - b) <= tolerance;
-
-const browser = await chromium.launch();
-
-function watch(page, errors, label) {
-  page.on("pageerror", (err) => errors.push(label + " pageerror: " + err));
-  page.on("console", (msg) => {
-    if (msg.type() === "error") errors.push(label + " console: " + msg.text());
-  });
-}
-
-async function open(options = {}) {
-  const page = await browser.newPage(Object.assign({ viewport: { width: 1280, height: 1000 } }, options));
-  const errors = [];
-  watch(page, errors, options.label || "page");
-  await page.goto(BASE + (options.hash || ""), { waitUntil: "load" });
-  await page.waitForSelector(".cards");
-  return { page, errors };
-}
 
 async function table(page) {
   return page.evaluate(() => [...document.querySelectorAll("tbody tr")].map((tr) => {
@@ -88,7 +74,27 @@ async function table(page) {
   }));
 }
 
-try {
+async function runSuite(browser, engineName) {
+  const check = (ok, message) => {
+    if (!ok) failures.push(engineName + ": " + message);
+  };
+
+  function watch(page, errors, label) {
+    page.on("pageerror", (err) => errors.push(label + " pageerror: " + err));
+    page.on("console", (msg) => {
+      if (msg.type() === "error") errors.push(label + " console: " + msg.text());
+    });
+  }
+
+  async function open(options = {}) {
+    const page = await browser.newPage(Object.assign({ viewport: { width: 1280, height: 1000 } }, options));
+    const errors = [];
+    watch(page, errors, options.label || "page");
+    await page.goto(BASE + (options.hash || ""), { waitUntil: "load" });
+    await page.waitForSelector(".cards");
+    return { page, errors };
+  }
+
   const { page, errors } = await open({ label: "desktop" });
 
   const freshness = await page.innerText("#freshness");
@@ -211,8 +217,31 @@ try {
   check(href.includes(encodeURIComponent("60")), "cta input missing");
   check(cta.errors.length === 0, "cta errors: " + cta.errors.join(" | "));
   await cta.page.close();
+}
+
+try {
+  for (const name of WANTED) {
+    const engine = ENGINES[name];
+    if (!engine) {
+      failures.push("unknown browser: " + name);
+      continue;
+    }
+    let browser;
+    try {
+      browser = await engine.launch();
+    } catch (err) {
+      failures.push(name + ": launch failed: " + String(err).split("\n")[0]);
+      continue;
+    }
+    const before = failures.length;
+    try {
+      await runSuite(browser, name);
+      if (failures.length === before) console.log(name + ": ok");
+    } finally {
+      await browser.close();
+    }
+  }
 } finally {
-  await browser.close();
   server.close();
 }
 
@@ -221,4 +250,5 @@ if (failures.length) {
   for (const failure of failures) console.error(" - " + failure);
   process.exit(1);
 }
-console.log(`UI smoke ok: ${presets.length} presets, toggle, error paths, hash, mobile, dark, CTA`);
+const label = WANTED.join(", ");
+console.log(`UI smoke ok (${label}): ${presets.length} presets, toggle, error paths, hash, mobile, dark, CTA`);
