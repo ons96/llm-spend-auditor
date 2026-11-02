@@ -12,6 +12,7 @@ import json
 import re
 import sys
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -84,6 +85,8 @@ def main() -> int:
     OUT.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "source": AA_URL,
+        # UTC date: the static UI shows this as the dataset freshness line.
+        "scraped_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "scraped_rows": len(rows),
         "models": scores,
     }

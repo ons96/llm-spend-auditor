@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Spend Auditor - cheaper models, honest quality deltas</title>
+<meta name="description" content="Audit an LLM bill: current monthly cost, cheaper models that meet the same needs, and the Artificial Analysis intelligence points each saving costs. All math runs in your browser.">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #191c20;
+    --muted: #5b6472;
+    --line: #dde1e6;
+    --accent: #1f52d0;
+    --good: #0d6b44;
+    --good-bg: #e4f4ec;
+    --warn: #8a4b00;
+    --warn-bg: #fff3e2;
+    --bad: #96232a;
+    --bad-bg: #fcecec;
+    --current-bg: rgba(31, 82, 208, 0.07);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101318;
+      --panel: #171b22;
+      --ink: #e9ecf1;
+      --muted: #9aa5b4;
+      --line: #2a313b;
+      --accent: #8db0ff;
+      --good: #6fd6a1;
+      --good-bg: #12301f;
+      --warn: #f0b46b;
+      --warn-bg: #33250f;
+      --bad: #ff9292;
+      --bad-bg: #3a1c1e;
+      --current-bg: rgba(141, 176, 255, 0.13);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  header { padding: 44px 0 8px; }
+  h1 { margin: 0 0 10px; font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; }
+  .lede { margin: 0 0 16px; max-width: 62ch; color: var(--muted); font-size: 17px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  .freshness {
+    margin: 0 0 28px;
+    padding: 8px 12px;
+    display: inline-block;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  .freshness b { color: var(--ink); font-weight: 600; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .panel h2 { margin: 0 0 18px; font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+  .grid .wide { grid-column: 1 / -1; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 28px; } }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field > label { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+  .field .hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+  input[type="number"], input[type="text"], select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+  }
+  select { cursor: pointer; }
+  input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  fieldset { margin: 0; padding: 0; border: 0; }
+  legend { padding: 0; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+  button {
+    font: inherit;
+    font-size: 14px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { button.primary { color: #0d1117; } }
+  button:hover { filter: brightness(0.97); }
+  .share { flex: 1 1 320px; display: flex; gap: 8px; min-width: 0; }
+  .share input { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .copy-state { font-size: 12.5px; color: var(--good); min-width: 76px; }
+  .results { margin: 26px 0 0; }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 820px) { .cards { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .card-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px; }
+  .card-value { font-size: 26px; font-weight: 650; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .card-sub { margin-top: 8px; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+  .card-sub code { font-family: var(--mono); color: var(--ink); }
+  .table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  caption { text-align: left; padding: 16px 18px 4px; font-size: 13px; color: var(--muted); }
+  th, td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tr.current { background: var(--current-bg); }
+  tr.current td { font-weight: 600; }
+  td.model { font-family: var(--mono); font-size: 13px; }
+  .delta { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .delta.neg { background: var(--warn-bg); color: var(--warn); }
+  .delta.pos { background: var(--good-bg); color: var(--good); }
+  .delta.none { background: var(--bg); color: var(--muted); }
+  .verdict { font-size: 12.5px; color: var(--muted); }
+  .verdict.trade { color: var(--warn); }
+  .notice { border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; padding: 14px 16px; margin: 0 0 18px; background: var(--panel); font-size: 14px; }
+  .notice.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+  .notice.bad { border-left-color: var(--bad); background: var(--bad-bg); }
+  .notice strong { display: block; margin-bottom: 4px; }
+  .fine { margin: 14px 2px 0; font-size: 12.5px; color: var(--muted); max-width: 80ch; }
+  .notes { margin: 34px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 34px; }
+  @media (max-width: 720px) { .notes { grid-template-columns: 1fr; } }
+  .notes h3 { margin: 0 0 6px; font-size: 14px; }
+  .notes p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  footer { margin: 44px 0 60px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  footer p { margin: 0 0 6px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>LLM Spend Auditor</h1>
+    <p class="lede">
+      What your LLM workload costs today, which cheaper models meet the same
+      needs, and <strong>exactly how many quality points each saving costs</strong>.
+      Quality comes from one normalized index applied the same way to every
+      model, so the comparison is real.
+    </p>
+    <p class="freshness" id="freshness">Loading dataset...</p>
+  </header>
+
+  <main>
+    <section class="panel" aria-labelledby="inputs-heading">
+      <h2 id="inputs-heading">Your workload</h2>
+      <div class="grid">
+        <div class="field wide">
+          <label for="preset">Preset workload <span class="hint">(or edit the fields below)</span></label>
+          <select id="preset">
+            <option value="">Custom</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="model">Current model <span class="hint">(any priced model id)</span></label>
+          <input id="model" type="text" list="model-list" autocomplete="off" spellcheck="false" placeholder="claude-sonnet-5-5">
+          <datalist id="model-list"></datalist>
+        </div>
+        <fieldset class="field">
+          <legend>Requirements <span class="hint">(tags from the price feed)</span></legend>
+          <div class="checks"></div>
+        </fieldset>
+        <div class="field">
+          <label for="tokens-in">Input tokens per month <span class="hint">(millions)</span></label>
+          <input id="tokens-in" type="number" min="0" step="any" inputmode="decimal" placeholder="60">
+        </div>
+        <div class="field">
+          <label for="tokens-out">Output tokens per month <span class="hint">(millions)</span></label>
+          <input id="tokens-out" type="number" min="0" step="any" inputmode="decimal" placeholder="6">
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="copy">Copy link to this audit</button>
+        <button type="button" id="reset">Reset</button>
+        <span class="copy-state" id="copy-state" role="status"></span>
+        <div class="share">
+          <label class="sr-only" for="share-url">Shareable link</label>
+          <input id="share-url" type="text" readonly>
+        </div>
+      </div>
+    </section>
+
+    <section class="results" id="results" aria-live="polite"></section>
+
+    <section class="notes" aria-label="Method and limits">
+      <div>
+        <h3>How the cost is computed</h3>
+        <p>
+          Monthly cost = input millions x price per million input tokens +
+          output millions x price per million output tokens. Nothing is cached,
+          batched, or discounted on your behalf.
+        </p>
+      </div>
+      <div>
+        <h3>Why the base price is a median</h3>
+        <p>
+          The current model is priced at the median across the providers in this
+          snapshot, not the cheapest listing. The cheapest listing is often a
+          stale reseller discount and would understate your bill.
+        </p>
+      </div>
+      <div>
+        <h3>Quality is never assumed</h3>
+        <p>
+          A model without an Artificial Analysis score is never recommended and
+          never compared. Every saving shown sits next to the index points it
+          costs, because "95% cheaper" says nothing about what you lose.
+        </p>
+      </div>
+      <div>
+        <h3>What is missing</h3>
+        <p id="coverage">
+          Loading coverage...
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Prices: <a href="https://github.com/BerriAI/litellm">LiteLLM</a> public
+      price feed, normalized to USD per 1M tokens. Quality:
+      <a href="https://artificialanalysis.ai/leaderboards/models">Artificial Analysis
+      Intelligence Index</a>, one methodology for every model.
+    </p>
+    <p>
+      No accounts, no server, no tracking. All math runs in your browser.
+      Source: <a href="https://github.com/ons96/llm-spend-auditor">ons96/llm-spend-auditor</a>.
+    </p>
+  </footer>
+
+  <noscript>
+    <p class="notice bad">This page needs JavaScript: the audit math runs in your browser.</p>
+  </noscript>
+</div>
+
+<script src="audit.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var NEEDS = [
+    { id: "cheap", label: "Cheap input (<= $0.50 per 1M in)" },
+    { id: "long_context", label: "Long context (>= 200k window)" }
+  ];
+  var TOP = 3;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var presetSelect = $("preset");
+  var modelInput = $("model");
+  var tokensIn = $("tokens-in");
+  var tokensOut = $("tokens-out");
+  var results = $("results");
+  var freshness = $("freshness");
+  var coverage = $("coverage");
+  var shareUrl = $("share-url");
+  var copyState = $("copy-state");
+  var checkboxes = {};
+
+  var data = { prices: [], presets: [], aa: null };
+  var usd = new Intl.NumberFormat("en-US", {
+    style: "currency", currency: "USD",
+    minimumFractionDigits: 2, maximumFractionDigits: 2
+  });
+  var count = new Intl.NumberFormat("en-US");
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function money(x) { return usd.format(x); }
+  function price(x) {
+    if (x === null || x === undefined) { return "-"; }
+    if (x === 0) { return "$0"; }
+    if (x >= 1) { return "$" + x.toFixed(2); }
+    return "$" + String(Number(x.toFixed(4)));
+  }
+  function num(v) {
+    var n = parseFloat(v);
+    return isFinite(n) && n > 0 ? n : 0;
+  }
+  function pts(d) {
+    return (d > 0 ? "+" : "") + d + " pts";
+  }
+
+  // --- data loading -------------------------------------------------------
+
+  function loadJson(path) {
+    return fetch(path, { cache: "no-cache" }).then(function (r) {
+      if (!r.ok) { throw new Error(path + ": HTTP " + r.status); }
+      return r.json();
+    });
+  }
+
+  function boot() {
+    Promise.all([
+      loadJson("data/prices.json"),
+      loadJson("data/presets.json"),
+      loadJson("data/aa_scores.json").catch(function () { return null; })
+    ]).then(function (out) {
+      var priceDoc = out[0];
+      data.prices = priceDoc.rows.map(function (row) {
+        var obj = {};
+        priceDoc.cols.forEach(function (col, i) { obj[col] = row[i]; });
+        return obj;
+      });
+      data.presets = out[1];
+      data.aa = out[2];
+      buildControls();
+      var start = fromHash() || presetWorkload(data.presets[0]);
+      applyWorkload(start);
+      renderFreshness();
+    }).catch(function (err) {
+      freshness.textContent = "Dataset failed to load";
+      results.innerHTML = '<div class="notice bad"><strong>Could not load the dataset</strong>' +
+        esc(err.message) + " If you opened this file directly, serve the folder instead: " +
+        "<code>python3 -m http.server</code> then open " +
+        "<code>http://localhost:8000/</code>.</div>";
+      coverage.textContent = "Coverage unknown: the dataset did not load.";
+    });
+  }
+
+  function renderFreshness() {
+    var scraped = data.aa && data.aa.scraped_at;
+    var aaCount = data.aa ? Object.keys(data.aa.models).length : null;
+    var seen = {}, paidSeen = {}, priced = 0, scored = 0;
+    data.prices.forEach(function (p) {
+      seen[p.model_id] = true;
+      if (p.is_free || paidSeen[p.model_id]) { return; }
+      paidSeen[p.model_id] = true;
+      priced += 1;
+      if (p.aa_score !== null && p.aa_score !== undefined) { scored += 1; }
+    });
+    var total = Object.keys(seen).length;
+    var freeOnly = total - priced;
+
+    if (scraped) {
+      freshness.innerHTML = "Dataset last updated <b>" + esc(scraped) + "</b>" +
+        " (Artificial Analysis Intelligence Index scrape). Prices from the LiteLLM feed snapshot.";
+    } else {
+      freshness.innerHTML = "Dataset last updated <b>unknown</b>" +
+        " (the AA scrape wrote no date). Prices from the LiteLLM feed snapshot.";
+    }
+    coverage.innerHTML = "<b>" + scored + " verified</b> models (an AA score and a " +
+      "published paid price) out of " + count.format(priced) + " paid models, from " +
+      count.format(total) + " distinct model ids in the snapshot (" + freeOnly +
+      " are free-tier only and never recommended)";
+    if (aaCount) { coverage.innerHTML += ", against " + aaCount + " AA-scored frontier models"; }
+    coverage.innerHTML += ". Public price feeds lag open-model releases by weeks, so new " +
+      "frontier models are often unscored here rather than absent on purpose. " +
+      "Free tiers are excluded from recommendations.";
+  }
+
+  function buildControls() {
+    var scored = {}, seen = {};
+    data.prices.forEach(function (p) {
+      if (p.is_free) { return; }
+      if (!seen[p.model_id]) {
+        seen[p.model_id] = true;
+        scored[p.model_id] = p.aa_score !== null && p.aa_score !== undefined
+          ? p.aa_score : -1;
+      }
+    });
+    var ids = Object.keys(seen).sort(function (a, b) {
+      var sa = scored[a], sb = scored[b];
+      if (sa !== sb) { return sb - sa; }
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    var frag = document.createDocumentFragment();
+    ids.forEach(function (id) {
+      var opt = document.createElement("option");
+      opt.value = id;
+      frag.appendChild(opt);
+    });
+    $("model-list").appendChild(frag);
+
+    data.presets.forEach(function (p) {
+      var opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.label + " (" + p.current_model + ")";
+      presetSelect.appendChild(opt);
+    });
+
+    var box = document.querySelector(".checks");
+    NEEDS.forEach(function (need) {
+      var label = document.createElement("label");
+      label.className = "check";
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = need.id;
+      input.addEventListener("change", onEdit);
+      label.appendChild(input);
+      label.appendChild(document.createTextNode(need.label));
+      box.appendChild(label);
+      checkboxes[need.id] = input;
+    });
+  }
+
+  // --- state <-> inputs ---------------------------------------------------
+
+  function presetWorkload(p) {
+    return {
+      current_model: p.current_model,
+      monthly_input_m: p.monthly_input_m,
+      monthly_output_m: p.monthly_output_m,
+      needs: (p.needs || []).slice()
+    };
+  }
+
+  function readInputs() {
+    return {
+      current_model: modelInput.value.trim(),
+      monthly_input_m: num(tokensIn.value),
+      monthly_output_m: num(tokensOut.value),
+      needs: NEEDS.filter(function (n) { return checkboxes[n.id].checked; })
+        .map(function (n) { return n.id; })
+    };
+  }
+
+  function applyWorkload(w) {
+    modelInput.value = w.current_model || "";
+    tokensIn.value = String(w.monthly_input_m);
+    tokensOut.value = String(w.monthly_output_m);
+    NEEDS.forEach(function (n) {
+      checkboxes[n.id].checked = (w.needs || []).indexOf(n.id) !== -1;
+    });
+    syncPreset(w);
+    update();
+  }
+
+  function sameNeeds(a, b) {
+    var x = (a || []).slice().sort().join(",");
+    var y = (b || []).slice().sort().join(",");
+    return x === y;
+  }
+
+  function matchPreset(w) {
+    for (var i = 0; i < data.presets.length; i++) {
+      var p = data.presets[i];
+      if (p.current_model === w.current_model &&
+          p.monthly_input_m === w.monthly_input_m &&
+          p.monthly_output_m === w.monthly_output_m &&
+          sameNeeds(p.needs, w.needs)) {
+        return p.id;
+      }
+    }
+    return "";
+  }
+
+  function syncPreset(w) {
+    presetSelect.value = matchPreset(w);
+  }
+
+  // --- shareable link -----------------------------------------------------
+
+  function writeHash(w) {
+    var params = new URLSearchParams();
+    params.set("model", w.current_model || "");
+    params.set("input", String(w.monthly_input_m));
+    params.set("output", String(w.monthly_output_m));
+    if (w.needs && w.needs.length) { params.set("needs", w.needs.join(",")); }
+    var hash = "#" + params.toString();
+    if (location.protocol === "file:") {
+      shareUrl.value = location.pathname + hash;
+      return;
+    }
+    try {
+      history.replaceState(null, "", hash);
+    } catch (e) {
+      // Some browsers block replaceState on odd origins; the link still works.
+    }
+    shareUrl.value = location.origin + location.pathname + hash;
+  }
+
+  function fromHash() {
+    var raw = location.hash.replace(/^#/, "");
+    if (!raw) { return null; }
+    var p = new URLSearchParams(raw);
+    if (!p.has("model")) { return null; }
+    var needs = (p.get("needs") || "").split(",").filter(function (id) {
+      return NEEDS.some(function (n) { return n.id === id; });
+    });
+    return {
+      current_model: p.get("model"),
+      monthly_input_m: num(p.get("input")),
+      monthly_output_m: num(p.get("output")),
+      needs: needs
+    };
+  }
+
+  // --- rendering ----------------------------------------------------------
+
+  function onEdit() {
+    var w = readInputs();
+    syncPreset(w);
+    update();
+  }
+
+  function update() {
+    var w = readInputs();
+    writeHash(w);
+    if (!w.current_model) {
+      results.innerHTML = '<div class="notice warn"><strong>Pick a model</strong>' +
+        "Choose a preset or type a model id from the list. The audit needs a " +
+        "current model to compare against.</div>";
+      return;
+    }
+    if (parseFloat(tokensIn.value) < 0 || parseFloat(tokensOut.value) < 0) {
+      results.innerHTML = '<div class="notice warn"><strong>Check the token volumes</strong>' +
+        "Monthly token counts cannot be negative.</div>";
+      return;
+    }
+    var res = SpendAudit.audit(w, data.prices, TOP);
+    if (res.error) {
+      results.innerHTML = '<div class="notice bad"><strong>No paid price rows for ' +
+        esc(w.current_model) + "</strong>" +
+        "That model is not in the LiteLLM snapshot, or it only appears as a free " +
+        "tier (excluded: rate limits make free tiers unusable at business volume). " +
+        "Pick a model from the list.</div>";
+      return;
+    }
+    if (!w.monthly_input_m && !w.monthly_output_m) {
+      results.innerHTML = '<div class="notice warn"><strong>Enter your monthly tokens</strong>' +
+        "Both token fields are zero, so every model costs $0 and there is nothing to compare.</div>";
+      return;
+    }
+    if (!res.quality_verified) {
+      results.innerHTML = renderUnscored(w, res);
+      return;
+    }
+    results.innerHTML = renderAudit(w, res);
+  }
+
+  function renderUnscored(w, res) {
+    return '<div class="notice warn"><strong>' + esc(w.current_model) +
+      " has no Artificial Analysis score</strong>" +
+      "This tool will not estimate quality it cannot measure, so it makes no " +
+      "recommendation. Your spend estimate is " + money(res.current_cost) +
+      " per month, at the median of " + res.providers +
+      " provider prices. Nothing is claimed about whether a cheaper model would " +
+      "be as good.</div>";
+  }
+
+  function renderAudit(w, res) {
+    var html = "";
+    var cheapest = res.alternatives[0];
+    var safe = res.same_or_better;
+
+    html += '<div class="cards">';
+    html += card("Current monthly spend", money(res.current_cost),
+      "<code>" + esc(w.current_model) + "</code>, AA score " + res.current_score +
+      ", median of " + res.providers + " provider price" +
+      (res.providers === 1 ? "" : "s") + ".", "");
+    if (cheapest) {
+      html += card("Cheapest alternative", money(cheapest.monthly_cost) +
+          ' <span class="delta ' + deltaClass(cheapest.score_delta) + '">' +
+          pts(cheapest.score_delta) + "</span>",
+        "<code>" + esc(cheapest.model_id) + "</code>, " +
+        cheapest.savings_pct.toFixed(1) + "% cheaper, saves " +
+        money(res.current_cost - cheapest.monthly_cost) + " per month.");
+    } else {
+      html += card("Cheapest alternative", "None", "No cheaper model in this " +
+        "snapshot meets your needs and has an AA score.");
+    }
+    if (safe) {
+      html += card("Same or better quality",
+        money(safe.monthly_cost) + ' <span class="delta pos">' + pts(safe.score_delta) + "</span>",
+        "<code>" + esc(safe.model_id) + "</code>, " + safe.savings_pct.toFixed(1) +
+        "% cheaper at the same or better AA score.");
+    } else {
+      html += card("Same or better quality", "None", "Every cheaper option gives " +
+        "up index points. That is a real trade-off, not a free win.");
+    }
+    html += "</div>";
+
+    html += '<div class="table-wrap"><table>';
+    html += "<caption>Monthly cost for your workload. Savings are always paired " +
+      "with the AA index points they cost.</caption>";
+    html += "<thead><tr>" +
+      '<th scope="col">Model</th><th scope="col">Provider</th>' +
+      '<th scope="col" class="num">$/M in</th><th scope="col" class="num">$/M out</th>' +
+      '<th scope="col" class="num">Monthly</th><th scope="col" class="num">Savings</th>' +
+      '<th scope="col" class="num">AA score</th><th scope="col" class="num">Quality vs current</th>' +
+      '<th scope="col">Verdict</th></tr></thead><tbody>';
+
+    html += '<tr class="current"><td class="model">' + esc(w.current_model) + "</td>" +
+      "<td>" + esc(res.current_provider) + "</td>" +
+      '<td class="num">' + price(res.current_input_per_m) + "</td>" +
+      '<td class="num">' + price(res.current_output_per_m) + "</td>" +
+      '<td class="num">' + money(res.current_cost) + "</td>" +
+      '<td class="num muted">-</td>' +
+      '<td class="num">' + res.current_score + "</td>" +
+      '<td class="num muted">-</td>' +
+      '<td class="verdict">current</td></tr>';
+
+    res.alternatives.forEach(function (a) {
+      var better = a.score_delta >= 0;
+      html += "<tr><td class=\"model\">" + esc(a.model_id) + "</td>" +
+        "<td>" + esc(a.provider) + "</td>" +
+        '<td class="num">' + price(a.input_per_m) + "</td>" +
+        '<td class="num">' + price(a.output_per_m) + "</td>" +
+        '<td class="num">' + money(a.monthly_cost) + "</td>" +
+        '<td class="num">' + a.savings_pct.toFixed(1) + "% (" +
+          money(res.current_cost - a.monthly_cost) + ")</td>" +
+        '<td class="num">' + a.score + "</td>" +
+        '<td class="num"><span class="delta ' + (better ? "pos" : "neg") + '">' +
+          pts(a.score_delta) + "</span></td>" +
+        '<td class="verdict' + (better ? "" : " trade") + '">' +
+          (better ? "same or better" : "trade-off") + "</td></tr>";
+    });
+
+    html += "</tbody></table></div>";
+    html += '<p class="fine">Cost = input millions x $/M in + output millions x ' +
+      "$/M out. Index points are Artificial Analysis Intelligence Index points: " +
+      "a 20 point drop is a capability loss, not a rounding error. Cheaper models " +
+      "without an AA score are not listed at all.</p>";
+    return html;
+  }
+
+  function deltaClass(d) { return d >= 0 ? "pos" : "neg"; }
+
+  function card(label, value, sub) {
+    return '<div class="card"><div class="card-label">' + label + "</div>" +
+      '<div class="card-value">' + value + "</div>" +
+      '<div class="card-sub">' + sub + "</div></div>";
+  }
+
+  // --- wiring -------------------------------------------------------------
+
+  presetSelect.addEventListener("change", function () {
+    var found = data.presets.filter(function (p) { return p.id === presetSelect.value; })[0];
+    if (found) { applyWorkload(presetWorkload(found)); }
+  });
+  modelInput.addEventListener("input", onEdit);
+  tokensIn.addEventListener("input", onEdit);
+  tokensOut.addEventListener("input", onEdit);
+
+  $("reset").addEventListener("click", function () {
+    try {
+      history.replaceState(null, "", location.pathname);
+    } catch (e) {
+      // Ignored: the workload below is the actual reset.
+    }
+    applyWorkload(presetWorkload(data.presets[0]));
+  });
+
+  $("copy").addEventListener("click", function () {
+    shareUrl.select();
+    var done = function (ok) {
+      copyState.textContent = ok ? "Link copied" : "Select and copy the link";
+      setTimeout(function () { copyState.textContent = ""; }, 2500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl.value).then(function () {
+        done(true);
+      }, function () { done(false); });
+    } else {
+      done(false);
+    }
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>

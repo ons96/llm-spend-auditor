@@ -56,7 +56,7 @@ def audit(w, prices, top=3):
     if cur_score is None:
         # No benchmark = no quality claim. Report spend, recommend nothing.
         return {"current_cost": round(base_cost, 2), "current_provider": base["provider"],
-                "current_score": None, "quality_verified": False,
+                "current_score": None, "quality_verified": False, "providers": len(cur),
                 "alternatives": [], "same_or_better": None}
 
     best = {}
@@ -88,7 +88,7 @@ def audit(w, prices, top=3):
 
     safe = next(((c, p) for c, p in ranked if p["aa_score"] >= cur_score), None)
     return {"current_cost": round(base_cost, 2), "current_provider": base["provider"],
-            "current_score": cur_score, "quality_verified": True,
+            "current_score": cur_score, "quality_verified": True, "providers": len(cur),
             "alternatives": [fmt(c, p) for c, p in ranked[:top]],
             "same_or_better": fmt(*safe) if safe else None}
 
