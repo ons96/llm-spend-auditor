@@ -15,7 +15,9 @@ PRESETS = os.path.join(ROOT, "data", "presets.json")
 PRICES_JSON = os.path.join(ROOT, "data", "prices.json")
 
 MIN_FLOOR = 50.0  # absolute score floor (coding or chat); below this a swap is not a credible claim
+MIN_COVERAGE = 2    # alternatives need >=2 benchmarks; single-benchmark scores are noise
 QUALITY_SLACK = 0.0 # alternatives must score >= current model
+MIN_COVERAGE = 2   # benchmarks behind a score; 1-benchmark scores are noise, not a claim
 
 
 def load_prices(db=PRICES_DB):
@@ -56,7 +58,8 @@ def audit(w, prices, top=3):
     best = {}
     for p in paid:
         s = p.get(col)
-        if p["model_id"] == w["current_model"] or s is None or s < floor:
+        if p["model_id"] == w["current_model"] or s is None or s < floor \
+                or (p.get("coverage") or 0) < MIN_COVERAGE:
             continue
         if not set(w["needs"]) <= set((p["tags"] or "").split(",")):
             continue
@@ -84,7 +87,7 @@ def audit(w, prices, top=3):
 
 def export_json(prices, path=PRICES_JSON):
     cols = ["model_id", "provider", "input_per_m", "output_per_m",
-            "is_free", "context_window", "coding_score", "chat_score", "tags"]
+            "is_free", "context_window", "coding_score", "chat_score", "coverage", "tags"]
     with open(path, "w") as f:
         json.dump({"cols": cols, "rows": [[p[c] for c in cols] for p in prices]},
                   f, separators=(",", ":"))

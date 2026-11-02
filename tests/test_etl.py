@@ -20,12 +20,12 @@ def test_run(tmp_path):
     db.execute("""create table model_providers (model_id, provider_name,
         provider_model_id, input_cost_per_token, output_cost_per_token,
         is_free_tier, context_window_tokens, mode, avg_agentic_coding_score,
-        avg_reasoning_chat_score, last_updated)""")
-    db.executemany("insert into model_providers values (?,?,?,?,?,?,?,?,?,?,?)", [
-        ("m1", "p", "p/m1", 1e-6, 2e-6, 0, 128000, "chat", None, None, "t"),
-        ("m2", "p", "p/m2", 0, 0, 1, 1000000, "chat", 70.0, 65.0, "t"),
-        ("m3", "p", "p/m3", 1e-6, 2e-6, 0, 128000, "embedding", None, None, "t"),
-        ("m4", "p", "p/m4", 0, 0, 0, 128000, "chat", None, None, "t"),
+        avg_reasoning_chat_score, benchmark_coverage, last_updated)""")
+    db.executemany("insert into model_providers values (?,?,?,?,?,?,?,?,?,?,?,?)", [
+        ("m1", "p", "p/m1", 1e-6, 2e-6, 0, 128000, "chat", None, None, 0, "t"),
+        ("m2", "p", "p/m2", 0, 0, 1, 1000000, "chat", 70.0, 65.0, 2, "t"),
+        ("m3", "p", "p/m3", 1e-6, 2e-6, 0, 128000, "embedding", None, None, 0, "t"),
+        ("m4", "p", "p/m4", 0, 0, 0, 128000, "chat", None, None, 0, "t"),
     ])
     db.commit()
     out = tmp_path / "out.db"
