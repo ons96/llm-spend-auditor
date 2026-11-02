@@ -1,5 +1,8 @@
 # Outreach drafts (not posted)
 
+Operating plan (where to ask, intake, running the audit, publishing, cadence):
+[`AUDIT_PLAYBOOK.md`](AUDIT_PLAYBOOK.md).
+
 These are drafts for the owner to post. Do not automate posting: it needs a
 real account, and communities treat drive-by tool links as spam. Read each
 community's self-promotion rules first; some require flair or mod approval.

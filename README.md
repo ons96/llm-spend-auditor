@@ -75,3 +75,5 @@ you need a free GitHub account to open one; the auditor itself needs none. Do
 not send API keys, prompts or customer data; the numbers are enough.
 
 Background on the method and its limits: [`docs/writeup.md`](docs/writeup.md).
+The intake and reply flow is in [`docs/AUDIT_PLAYBOOK.md`](docs/AUDIT_PLAYBOOK.md);
+a request is answered with `python3 audit_request.py --url "<share link>"`.

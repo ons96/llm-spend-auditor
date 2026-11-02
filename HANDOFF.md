@@ -33,7 +33,7 @@ beaed7a  feat: price date, audit CTA, responsive table
 0259a93  docs: weekend 3 handoff and live URL
 ```
 
-The current HANDOFF is itself the latest docs commit. 15 Python tests pass,
+The current HANDOFF is itself the latest docs commit. 24 Python tests pass,
 plus a committed browser smoke test. Run from the repo root:
 
 ```
@@ -52,10 +52,12 @@ Files:
 | `data/presets.json` | 10 example workloads |
 | `data/prices.json` | Exported price table for the UI (committed, 231 KB) |
 | `data/aa_scores.json` | Scraped AA index (committed, with `scraped_at`) |
-| `tests/` | 15 tests, including a node parity check for the UI math |
+| `tests/` | 24 tests, including node parity and the request report CLI |
 | `docs/self-audit-2026-11.md` | Weekend 4 self-audit on real gateway telemetry |
 | `docs/writeup.md` | Portfolio writeup: method, rules, limits |
+| `docs/AUDIT_PLAYBOOK.md` | Recruit, run, anonymize and publish external audits |
 | `docs/outreach.md` | Reddit/Discord drafts, not posted |
+| `audit_request.py` | Request (or share URL) -> markdown report, one command |
 | `QUESTIONS.md` | Decisions and the one open item (external audits) |
 | `tests/browser/smoke.mjs` | Playwright smoke test for the page |
 | `package.json`, `package-lock.json` | Dev-only Playwright dependency |
@@ -222,6 +224,17 @@ Do not silently revert these. Each one cost a debugging cycle.
     prefill. Do not replace it with a second parity test, and do not let the
     node parity test be deleted because the browser test passes.
 
+22. **Reports are generated from the committed snapshot, not the database or
+    the network.** `audit_request.py` reads `data/prices.json`, the exact file
+    the page serves, and accepts the page's share URL directly. That is what
+    makes a reply match the link. Do not make it fetch live prices: a report
+    that disagrees with the link is worse than a dated one.
+
+23. **External audits are opt-in and anonymized.** The playbook requires
+    permission before publishing, a label instead of a company name, and no
+    prompts or outputs. Three completed rows is the Weekend 4 target; do not
+    pad the sample with audits that were never run.
+
 ## The 17 scored models (AA index | $/M in | $/M out)
 
 ```
@@ -310,10 +323,12 @@ Live: https://ons96.github.io/llm-spend-auditor/ (Pages: branch `master`, root).
    `api_calls` telemetry table on VPS-40 (read-only, no prompts). 28,227 calls,
    $0 recorded spend, 4.9% with token counts, 0.011% of measured tokens on a
    scored model. The auditor refuses to recommend for the real top model.
-2. **Three external anonymized audits: not done.** Recruiting needs the
-   owner's accounts and identity on r/LocalLLaMA and dev Discords. Drafts are
-   in `docs/outreach.md`; the CTA and issue template are live so requests can
-   arrive without posting. `QUESTIONS.md` is the only open item.
+2. **Three external anonymized audits: not done, but the pipeline is ready.**
+   `docs/AUDIT_PLAYBOOK.md` is the step-by-step plan (ask, intake, run, reply,
+   publish, cadence), `docs/outreach.md` has the copy, the `audit` label marks
+   requests, and `audit_request.py` turns a share link into a report in one
+   command. Recruiting still needs the owner's account and identity; the CTA
+   catches inbound requests without posting. `QUESTIONS.md` is the open item.
 3. **Writeup: done.** `docs/writeup.md` is the broader piece (method, three
    rules, self-audit findings, limits); `docs/self-audit-2026-11.md` is the
    data. A comparative writeup still waits for external requests.

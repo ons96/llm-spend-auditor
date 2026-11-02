@@ -2,6 +2,7 @@
 name: Free audit request
 about: Ask for a free LLM spend audit using public price and quality data
 title: "Audit request: "
+labels: audit
 ---
 
 ## Workload
