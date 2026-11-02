@@ -21,6 +21,8 @@ normalized index and shows the quality delta next to every dollar figure.
 
 ## Current state
 
+Recent commits (newest first):
+
 ```
 d7aeeb0  ci: refresh AA scores and prices weekly
 c60dd4a  docs: self-audit of my own gateway telemetry
@@ -69,7 +71,8 @@ python3 audit.py --export       # writes data/prices.json, prints all presets
 slug logic. `audit.py --export` also stamps `generated_at` (UTC date) into
 `data/prices.json`, which the page shows as the price half of its freshness
 line. The weekly workflow runs the same three commands and commits when the
-data moved.
+data moved. Verified by manual dispatch on 2026-11-02: every step passed and
+no data changed, including the AA scrape from a GitHub runner.
 
 ## Data sources
 

@@ -45,7 +45,7 @@ Two limits follow directly:
 1. **The token numbers are a floor, not a bill.** Most providers in this gateway
    do not return usage, and most calls are probes and routing tests. A 4.9%
    sample cannot stand in for total usage.
-2. **The bill is real but zero.** Every recorded call has a cost estimate of
+2. **The bill is real but zero.** Every non-null cost estimate in the table is
    $0.00 because the gateway routes to free tiers. Free tiers are excluded from
    recommendations by design, so there is nothing for the auditor to save here.
 
@@ -130,7 +130,8 @@ Does not prove:
 - That any saving is available on my bill. There is no bill.
 - That the measured token volume is complete. It is 4.9% of calls.
 - That free-tier routing is cheap in practice. Rate limits and retries are not
-  modeled; the gateway's own failure rate is why most calls carry no usage.
+  modeled, and 82% of calls in this table are marked failed; those calls often
+  carry no usage either.
 
 ## Reproduce
 
