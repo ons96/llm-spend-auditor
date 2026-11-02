@@ -14,6 +14,8 @@ Last updated 2026-11-02.
    window** at aggregate level, with no provider names. Keep it.
 5. **The broader writeup lives in `docs/writeup.md`** in this repo, not on an
    external blog.
+6. **The repository is MIT licensed.** Approved 2026-11-02; see `LICENSE`.
+   Copyright stays with `ons96`.
 
 ## Open: three external audits
 
@@ -30,11 +32,3 @@ audit is one copied link away.
 What is needed: post `docs/outreach.md` from your account, or forward requests
 you receive. If an agent should post, it needs an account and an explicit
 instruction naming the channel; otherwise intake stays inbound-only.
-
-## Open: repository license
-
-There is no `LICENSE` file. A public repo without one is still "all rights
-reserved", which undercuts reuse and looks unfinished on a portfolio.
-
-Recommendation: MIT, which fits a small free tool. This is an ownership choice,
-so it is not added until the owner says so.
