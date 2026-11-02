@@ -1,6 +1,8 @@
 # Handoff - LLM Spend Auditor
 
-Last updated 2026-11-02. Weekends 1-3 are complete, pushed and deployed.
+Last updated 2026-11-02. Weekends 1-3 are complete and deployed. Weekend 4 is
+in progress: the self-audit, writeup and CTA are done; the three external
+audits need the owner's accounts (see `QUESTIONS.md`).
 Live: https://ons96.github.io/llm-spend-auditor/
 
 Repo: https://github.com/ons96/llm-spend-auditor (public, branch `master`)
@@ -20,11 +22,12 @@ normalized index and shows the quality delta next to every dollar figure.
 ## Current state
 
 ```
+d7aeeb0  ci: refresh AA scores and prices weekly
+c60dd4a  docs: self-audit of my own gateway telemetry
+beaed7a  feat: price date, audit CTA, responsive table
+0259a93  docs: weekend 3 handoff and live URL
 17af0fd  feat: static audit UI for GitHub Pages
 0470213  fix: regenerate prices.json with key-tail slugs
-2e85ab1  docs: add handoff for harness migration
-b0f361d  chore: untrack litellm 24h cache
-123086e  feat: AA-score audit engine, honest quality deltas
 ```
 
 The current HANDOFF is itself the latest docs commit. 15 tests pass. Run from
@@ -47,6 +50,10 @@ Files:
 | `data/prices.json` | Exported price table for the UI (committed, 231 KB) |
 | `data/aa_scores.json` | Scraped AA index (committed, with `scraped_at`) |
 | `tests/` | 15 tests, including a node parity check for the UI math |
+| `docs/self-audit-2026-11.md` | Weekend 4 self-audit on real gateway telemetry |
+| `QUESTIONS.md` | Decisions that need the owner (accounts, naming, review) |
+| `.github/workflows/refresh-data.yml` | Weekly AA + price refresh, tested before commit |
+| `.github/ISSUE_TEMPLATE/audit-request.md` | Free-audit intake, token counts only |
 
 `data/prices.db` and `data/litellm_cache.json` are gitignored (regenerated).
 
@@ -59,7 +66,10 @@ python3 audit.py --export       # writes data/prices.json, prints all presets
 ```
 
 `etl.py --offline` uses the cache only. `scrape_aa.py --self-test` checks the
-slug logic.
+slug logic. `audit.py --export` also stamps `generated_at` (UTC date) into
+`data/prices.json`, which the page shows as the price half of its freshness
+line. The weekly workflow runs the same three commands and commits when the
+data moved.
 
 ## Data sources
 
@@ -158,6 +168,26 @@ Do not silently revert these. Each one cost a debugging cycle.
     instead of hiding the gap. Free-tier-only ids are counted and called out as
     never recommended.
 
+14. **Both dates are shown, and neither is called live.** `scraped_at` (AA) and
+    `generated_at` (price export) come from the files, not from `Date.now()`.
+    If either is missing the page says "unknown" rather than guessing. A static
+    page that implies live data is the same dishonesty as a savings figure with
+    no quality delta.
+
+15. **The refresh workflow commits to master, and that redeploys Pages.** It
+    scrapes, rebuilds, exports, runs pytest, and only then commits, so bad data
+    cannot land silently. `QUESTIONS.md` notes the pull-request alternative if
+    review is wanted. Do not add secrets to it: it needs none.
+
+16. **The self-audit publishes its own coverage gap.** The gateway telemetry
+    carries tokens for 4.9% of calls and an AA score for 0.011% of measured
+    tokens. The writeup says so up front instead of presenting a $0.92/month
+    counterfactual as a finding. Do not "clean up" those caveats.
+
+17. **The table hides rate and verdict columns under 720px, never the quality
+    delta.** Savings and `score_delta` stay on the phone view; the AA score and
+    verdict are redundant there. The honesty rule outranks the column count.
+
 ## The 17 scored models (AA index | $/M in | $/M out)
 
 ```
@@ -206,6 +236,13 @@ points for double the price.
   11 of AA's 42 slugs and none of the open frontier models.
 - **`audit.py` must be imported with the repo root on `sys.path`.** `pytest.ini`
   sets `pythonpath = .`; run pytest from the repo root.
+- **Telemetry coverage is the binding limit on the self-audit.** 95% of gateway
+  calls carry no token counts, and the only AA-scored model with measured
+  traffic saw 659 tokens. Any future self-audit should state its coverage
+  before its numbers; see `docs/self-audit-2026-11.md`.
+- **The refresh workflow can fail on AA's side.** If AA blocks the runner or
+  changes markup, `scrape_aa.py` exits non-zero and nothing is committed. That
+  is the intended failure mode; do not add a fallback that writes stale data.
 
 ## Weekend 3 delivered (2026-11-02)
 
@@ -230,12 +267,19 @@ Live: https://ons96.github.io/llm-spend-auditor/ (Pages: branch `master`, root).
    fetched back and run under jsdom against `audit.py` for all 10 presets plus
    the hash-restore, unscored-model, unknown-model and zero-token paths.
 
-## Next: Weekend 4
+## Weekend 4 (in progress, 2026-11-02)
 
-1. One real self-audit using `LLM-API-Key-Proxy` telemetry on VPS-40.
-2. Three external anonymized audits recruited from r/LocalLLaMA and dev
-   Discords.
-3. A writeup and a "book a free audit" CTA.
+1. **Self-audit: done.** `docs/self-audit-2026-11.md`, built from the
+   `api_calls` telemetry table on VPS-40 (read-only, no prompts). 28,227 calls,
+   $0 recorded spend, 4.9% with token counts, 0.011% of measured tokens on a
+   scored model. The auditor refuses to recommend for the real top model.
+2. **Three external anonymized audits: not done.** Recruiting needs the
+   owner's accounts and identity on r/LocalLLaMA and dev Discords. The CTA and
+   issue template are live so requests can arrive without posting.
+3. **Writeup: self-audit done, broader writeup pending.** The self-audit is
+   publishable now; the comparative writeup should wait for external requests.
+4. **"Book a free audit" CTA: live.** GitHub issues, token counts only, no keys
+   or prompts. Linked from the page and the README.
 
 ## Style rules for whoever continues
 

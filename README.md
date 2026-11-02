@@ -5,6 +5,10 @@ needs, and exactly how much quality each saving costs.
 
 Live: https://ons96.github.io/llm-spend-auditor/
 
+Status: Weekend 4 in progress. The static UI is live, the first real
+self-audit is published in `docs/self-audit-2026-11.md`, and the free-audit
+CTA is open. External audits are pending (see `QUESTIONS.md`).
+
 ## Why another cost calculator
 
 Most "switch to a cheaper model" advice compares models scored on different
@@ -54,3 +58,12 @@ releases by weeks, so the page says "17 verified" rather than "1,879
 available". See `HANDOFF.md` for the schema, decisions and their rationale.
 
 The workloads in `data/presets.json` are illustrative, not client data.
+The data refresh runs weekly via `.github/workflows/refresh-data.yml`, which
+scrapes AA, rebuilds the export, tests, and commits only when something moved.
+
+## Get an audit
+
+Free, no accounts: open an [audit
+request](https://github.com/ons96/llm-spend-auditor/issues/new?template=audit-request.md)
+with monthly token counts and your current model. Do not send API keys, prompts
+or customer data; the numbers are enough.
