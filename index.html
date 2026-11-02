@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LLM Spend Auditor - cheaper models, honest quality deltas</title>
 <meta name="description" content="Audit an LLM bill: current monthly cost, cheaper models that meet the same needs, and the Artificial Analysis intelligence points each saving costs. All math runs in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ons96.github.io/llm-spend-auditor/">
+<meta property="og:title" content="LLM Spend Auditor - cheaper models, honest quality deltas">
+<meta property="og:description" content="What your LLM workload costs, which cheaper models meet the same needs, and the Artificial Analysis points each saving costs.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="LLM Spend Auditor">
+<meta name="twitter:description" content="Cheaper models for your LLM workload, with the quality delta next to every saving.">
+<meta name="theme-color" content="#1f52d0">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f52d0'/%3E%3Crect x='7' y='17' width='4' height='9' fill='white'/%3E%3Crect x='14' y='12' width='4' height='14' fill='white'/%3E%3Crect x='21' y='7' width='4' height='19' fill='white'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -125,6 +133,8 @@
   .table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
   .table-intro { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+  .table-more { margin: 10px 2px 0; }
+  .table-more button { font-size: 13px; padding: 7px 12px; }
   th, td { padding: 10px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
   th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -241,7 +251,7 @@
         not paste API keys, prompts, invoices or customer data - token counts
         and a model name are enough.
       </p>
-      <a class="button" href="https://github.com/ons96/llm-spend-auditor/issues/new?template=audit-request.md">Request a free audit</a>
+      <a class="button" id="cta-request" href="https://github.com/ons96/llm-spend-auditor/issues/new?template=audit-request.md">Request a free audit</a>
       <a class="button ghost" href="https://github.com/ons96/llm-spend-auditor/blob/master/docs/self-audit-2026-11.md">Read the self-audit</a>
     </section>
 
@@ -289,6 +299,7 @@
     <p>
       No accounts, no server, no tracking. All math runs in your browser.
       Source: <a href="https://github.com/ons96/llm-spend-auditor">ons96/llm-spend-auditor</a>.
+      Writeup: <a href="https://github.com/ons96/llm-spend-auditor/blob/master/docs/writeup.md">how the audit avoids lying about quality</a>.
     </p>
   </footer>
 
@@ -307,6 +318,9 @@
     { id: "long_context", label: "Long context (>= 200k window)" }
   ];
   var TOP = 3;
+  var ALL = 500;
+  var ISSUE_URL = "https://github.com/ons96/llm-spend-auditor/issues/new";
+  var showAll = false;
 
   var $ = function (id) { return document.getElementById(id); };
   var presetSelect = $("preset");
@@ -318,6 +332,7 @@
   var coverage = $("coverage");
   var shareUrl = $("share-url");
   var copyState = $("copy-state");
+  var ctaRequest = $("cta-request");
   var checkboxes = {};
 
   var data = { prices: [], presets: [], aa: null, generatedAt: null };
@@ -565,6 +580,7 @@
   function update() {
     var w = readInputs();
     writeHash(w);
+    if (ctaRequest) { ctaRequest.href = issueUrl(w); }
     if (!w.current_model) {
       results.innerHTML = '<div class="notice warn"><strong>Pick a model</strong>' +
         "Choose a preset or type a model id from the list. The audit needs a " +
@@ -576,7 +592,7 @@
         "Monthly token counts cannot be negative.</div>";
       return;
     }
-    var res = SpendAudit.audit(w, data.prices, TOP);
+    var res = SpendAudit.audit(w, data.prices, ALL);
     if (res.error) {
       results.innerHTML = '<div class="notice bad"><strong>No paid price rows for ' +
         esc(w.current_model) + "</strong>" +
@@ -597,6 +613,34 @@
     results.innerHTML = renderAudit(w, res);
   }
 
+  function issueUrl(w) {
+    var needs = (w.needs && w.needs.length) ? w.needs.join(", ") : "none";
+    var body = [
+      "## Workload",
+      "",
+      "- Monthly input tokens (millions): " + w.monthly_input_m,
+      "- Monthly output tokens (millions): " + w.monthly_output_m,
+      "- Current model id: " + (w.current_model || ""),
+      "- Requirements: " + needs,
+      "",
+      "## Audit link",
+      "",
+      shareUrl.value,
+      "",
+      "## Context",
+      "",
+      "- What the workload does (one sentence):",
+      "- Is usage steady across the month (yes / no / unknown):",
+      "- Models or providers that must not be recommended:",
+      "",
+      "No API keys, prompts, invoices or customer data are included."
+    ].join("\n");
+    var params = new URLSearchParams();
+    params.set("title", "Audit request: " + (w.current_model || "workload"));
+    params.set("body", body);
+    return ISSUE_URL + "?" + params.toString();
+  }
+
   function renderUnscored(w, res) {
     return '<div class="notice warn"><strong>' + esc(w.current_model) +
       " has no Artificial Analysis score</strong>" +
@@ -609,6 +653,7 @@
 
   function renderAudit(w, res) {
     var html = "";
+    var shown = showAll ? res.alternatives : res.alternatives.slice(0, TOP);
     var cheapest = res.alternatives[0];
     var safe = res.same_or_better;
 
@@ -660,7 +705,7 @@
       '<td class="num muted">-</td>' +
       '<td class="verdict col-verdict">current</td></tr>';
 
-    res.alternatives.forEach(function (a) {
+    shown.forEach(function (a) {
       var better = a.score_delta >= 0;
       html += "<tr><td class=\"model\">" + esc(a.model_id) +
         '<span class="td-sub">' + esc(a.provider) + "</span></td>" +
@@ -676,6 +721,13 @@
     });
 
     html += "</tbody></table></div>";
+    if (res.alternatives.length > TOP) {
+      html += '<div class="table-more"><button type="button" data-action="toggle-all">' +
+        (showAll
+          ? "Show fewer"
+          : "Show all " + res.alternatives.length + " cheaper options") +
+        "</button></div>";
+    }
     html += '<p class="fine">Cost = input millions x $/M in + output millions x ' +
       "$/M out. Index points are Artificial Analysis Intelligence Index points: " +
       "a 20 point drop is a capability loss, not a rounding error. Cheaper models " +
@@ -692,6 +744,13 @@
   }
 
   // --- wiring -------------------------------------------------------------
+
+  results.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-action="toggle-all"]') : null;
+    if (!btn) { return; }
+    showAll = !showAll;
+    update();
+  });
 
   presetSelect.addEventListener("change", function () {
     var found = data.presets.filter(function (p) { return p.id === presetSelect.value; })[0];
