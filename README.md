@@ -36,6 +36,14 @@ discounts that understate the bill.
 | `data/prices.json` | Exported price table the UI reads (committed) |
 | `tests/` | Engine tests plus node parity tests for the UI math |
 
+## Setup
+
+    uv venv && . .venv/bin/activate
+    uv pip install -r requirements-dev.txt
+
+`requirements.txt` is the runtime set (the AA scraper needs bs4 and lxml);
+`requirements-dev.txt` adds pytest.
+
 ## Run
 
     python3 -m http.server 8000     # open http://localhost:8000/

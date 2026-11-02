@@ -53,6 +53,7 @@ Files:
 | `data/prices.json` | Exported price table for the UI (committed, 231 KB) |
 | `data/aa_scores.json` | Scraped AA index (committed, with `scraped_at`) |
 | `tests/` | 24 tests, including node parity and the request report CLI |
+| `requirements.txt`, `requirements-dev.txt` | Python deps: bs4 + lxml, plus pytest |
 | `docs/self-audit-2026-11.md` | Weekend 4 self-audit on real gateway telemetry |
 | `docs/writeup.md` | Portfolio writeup: method, rules, limits |
 | `docs/AUDIT_PLAYBOOK.md` | Recruit, run, anonymize and publish external audits |
@@ -68,6 +69,9 @@ Files:
 `data/prices.db` and `data/litellm_cache.json` are gitignored (regenerated).
 
 ### Regenerate everything
+
+Install once in a venv: `uv venv && . .venv/bin/activate && uv pip install -r
+requirements-dev.txt`.
 
 ```
 python3 scrape_aa.py            # writes data/aa_scores.json, refuses if <50 rows

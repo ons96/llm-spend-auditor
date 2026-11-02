@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: python -m pip install --quiet beautifulsoup4 lxml pytest
+        run: python -m pip install --quiet -r requirements-dev.txt
 
       - name: Scrape Artificial Analysis
         # Refuses to write under 50 parsed rows, so a redesign fails loudly.
