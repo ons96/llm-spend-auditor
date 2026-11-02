@@ -1,7 +1,7 @@
-# Handoff — LLM Spend Auditor
+# Handoff - LLM Spend Auditor
 
-Last updated 2026-11-02. Weekend 1 and Weekend 2 are complete and pushed.
-Weekend 3 (static UI + deploy) has not started.
+Last updated 2026-11-02. Weekends 1-3 are complete, pushed and deployed.
+Live: https://ons96.github.io/llm-spend-auditor/
 
 Repo: https://github.com/ons96/llm-spend-auditor (public, branch `master`)
 Local: `~/CodingProjects/llm-spend-auditor`
@@ -20,12 +20,15 @@ normalized index and shows the quality delta next to every dollar figure.
 ## Current state
 
 ```
+17af0fd  feat: static audit UI for GitHub Pages
+0470213  fix: regenerate prices.json with key-tail slugs
+2e85ab1  docs: add handoff for harness migration
 b0f361d  chore: untrack litellm 24h cache
 123086e  feat: AA-score audit engine, honest quality deltas
-8469316  feat: live AA quality index + live LiteLLM pricing
 ```
 
-11 tests pass. Run from the repo root:
+The current HANDOFF is itself the latest docs commit. 15 tests pass. Run from
+the repo root:
 
 ```
 python3 -m pytest -q
@@ -35,13 +38,15 @@ Files:
 
 | File | Role |
 |---|---|
+| `index.html` | Static UI: inputs, results table, shareable URL hash |
+| `audit.js` | Browser port of the audit math (also loadable from node) |
 | `scrape_aa.py` | Scrapes AA leaderboard -> `data/aa_scores.json` |
 | `etl.py` | Live LiteLLM prices + AA scores -> `data/prices.db` |
 | `audit.py` | Audit engine + JSON export -> `data/prices.json` |
 | `data/presets.json` | 10 example workloads |
-| `data/prices.json` | Exported price table for the UI (committed, 248 KB) |
-| `data/aa_scores.json` | Scraped AA index (committed) |
-| `tests/` | 11 tests |
+| `data/prices.json` | Exported price table for the UI (committed, 231 KB) |
+| `data/aa_scores.json` | Scraped AA index (committed, with `scraped_at`) |
+| `tests/` | 15 tests, including a node parity check for the UI math |
 
 `data/prices.db` and `data/litellm_cache.json` are gitignored (regenerated).
 
@@ -63,8 +68,8 @@ slug logic.
 | AA leaderboard | `https://artificialanalysis.ai/leaderboards/models` | One server-rendered `<table>`, 86 rows, 42 models. Plain curl + browser UA + bs4. No JS, no Playwright. |
 | LiteLLM prices | `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json` | 4,553 entries, 3,265 `mode='chat'`. Cached 24h at `data/litellm_cache.json`. |
 
-Current output: 3,297 priced rows, 1,879 distinct models, **17 with an AA
-score**.
+Current output: 3,297 priced rows, 1,879 distinct model ids (1,810 with a paid
+price), **17 with an AA score**.
 
 ## Schema (do not change casually)
 
@@ -88,7 +93,7 @@ Do not silently revert these. Each one cost a debugging cycle.
 1. **Quality source is AA only.** The earlier aggregate DB
    (`llm-leaderboard-aggregate/db/model_providers.db`) was abandoned. Its row
    for `gpt-4o` carried chat 9.7 / coding 13.8 while dated siblings carried
-   63.1 / 49.1 / 47.6 — an alias merge across mismatched sources. AA applies
+   63.1 / 49.1 / 47.6 - an alias merge across mismatched sources. AA applies
    one methodology to every model.
 
 2. **No quality floor.** An earlier build dropped anything below an arbitrary
@@ -122,6 +127,37 @@ Do not silently revert these. Each one cost a debugging cycle.
    tier file would be permanently stale, which is why the live feed replaced
    it.
 
+9. **The UI runs a port of the engine, not the engine.** There is no backend,
+   so `audit.js` repeats the math in the browser. `tests/test_ui_math.py` runs
+   both implementations on the same rows for all 10 presets and the edge cases,
+   so a rule changed in `audit.py` without `audit.js` fails a test. Do not
+   "simplify" the page by dropping `score_delta` from a row that shows a
+   saving.
+
+10. **The URL hash is the report format.**
+    `#model=...&input=...&output=...&needs=...` is the whole state: no cookies,
+    no local storage, no server. Editing rewrites it, loading restores it, and
+    the preset selector is re-matched by exact values, so an edited preset
+    reads "Custom" instead of claiming to be the preset.
+
+11. **The committed export was stale and is now regenerated.** The old
+    `data/prices.json` predated the `base_model()` key-tail fix: 1,239 ids
+    still carried provider prefixes, which split models into several rows and
+    hid three scored models (14 verified instead of 17). Preset money numbers
+    did not change, only the median provider's name, because provider rows now
+    merge under the right model id. Regenerate with `python3 audit.py --export`,
+    never by hand.
+
+12. **Freshness comes from the data, not from the page.** `scrape_aa.py` writes
+    `scraped_at` (UTC date) into `data/aa_scores.json` and the page renders it.
+    Never hardcode a date in `index.html`, and never call the data "live": the
+    page serves a committed snapshot.
+
+13. **The page states its coverage.** It shows "17 verified ... out of 1,810
+    paid models, from 1,879 distinct model ids", computed from the snapshot,
+    instead of hiding the gap. Free-tier-only ids are counted and called out as
+    never recommended.
+
 ## The 17 scored models (AA index | $/M in | $/M out)
 
 ```
@@ -151,11 +187,18 @@ points for double the price.
 
 ## Known limits
 
-- **17 scored models out of 1,879 priced.** 28 of AA's 42 frontier models have
-  no published price yet (glm-5-3, grok-4-7, gemini-4-carbon, qwen3-8-max,
-  kimi-k3-1-pro, minimax-m3-1-flash). Public price feeds lag open-model
-  releases by weeks. This is accepted, not a bug. Frame it as "17 verified"
-  rather than "1,879 available".
+- **17 scored models out of 1,879 priced ids** (1,810 with a paid price). 28 of
+  AA's 42 frontier models have no published price yet (glm-5-3, grok-4-7,
+  gemini-4-carbon, qwen3-8-max, kimi-k3-1-pro, minimax-m3-1-flash). Public
+  price feeds lag open-model releases by weeks. This is accepted, not a bug.
+  Frame it as "17 verified" rather than "1,879 available".
+- **The UI is verified at the math layer, not in a real browser.** jsdom ran
+  the page for all 10 presets and the edge paths (hash restore, unscored
+  model, unknown model, zero tokens); layout and CSS were inspected by reading
+  the file. There is no visual regression test.
+- **`index.html` must be served over http(s).** `file://` blocks `fetch` of the
+  local JSON. The page catches that and prints the `python3 -m http.server`
+  command instead of showing empty results.
 - **Scraping is coupled to AA's table markup.** `parse()` expects one table
   with those column headers. If AA redesigns, `scrape_aa.py` fails loudly
   (refuses to write under 50 rows) rather than writing garbage.
@@ -164,25 +207,35 @@ points for double the price.
 - **`audit.py` must be imported with the repo root on `sys.path`.** `pytest.ini`
   sets `pythonpath = .`; run pytest from the repo root.
 
-## Next: Weekend 3
+## Weekend 3 delivered (2026-11-02)
 
-Goal: a static UI on GitHub Pages that anyone can use without asking.
+Live: https://ons96.github.io/llm-spend-auditor/ (Pages: branch `master`, root).
 
-1. `index.html` at the repo root. Reads `data/prices.json`, does all math in
-   the browser. No backend, no build step.
-2. Preset selector (the 10 in `data/presets.json`) plus manual token inputs.
-3. Results table: current cost, alternative cost, savings %, and the
-   `score_delta` rendered so a negative delta is visibly a trade-off.
-4. A "dataset last updated" line from the AA scrape date. Freshness is part of
-   the pitch.
-5. Shareable report: encode inputs in the URL hash so a link reproduces the
-   audit. No accounts, no server.
-6. Enable Pages (Settings -> Pages -> Deploy from branch `master`, root).
-7. Verify the deployed URL returns 200 and the presets compute.
+1. `index.html` + `audit.js` at the repo root. Reads `data/prices.json`,
+   `data/presets.json` and `data/aa_scores.json`; all math in the browser, no
+   backend, no build step, no dependencies.
+2. Preset selector (the 10 in `data/presets.json`) plus manual model and token
+   inputs, and checkbox needs (`cheap`, `long_context`).
+3. Results: three summary cards (current spend, cheapest alternative, same or
+   better quality) and a table with $/M in, $/M out, monthly cost, savings and
+   the AA score delta in the same row. Negative deltas are amber and labelled
+   "trade-off"; non-negative ones are green and labelled "same or better".
+4. Freshness line from `scraped_at` in `data/aa_scores.json`, e.g. "Dataset
+   last updated 2026-11-02".
+5. Shareable report: the URL hash is rewritten on every edit and restored on
+   load, which also re-selects the matching preset. No accounts, no server,
+   no tracking.
+6. Pages enabled via the API, deploy from `master` root.
+7. Verified: the URL returns 200, and the deployed HTML, JS and data were
+   fetched back and run under jsdom against `audit.py` for all 10 presets plus
+   the hash-restore, unscored-model, unknown-model and zero-token paths.
 
-Then Weekend 4: one real self-audit using `LLM-API-Key-Proxy` telemetry on
-VPS-40, three external anonymized audits recruited from r/LocalLLaMA and
-dev Discords, a writeup, and a "book a free audit" CTA.
+## Next: Weekend 4
+
+1. One real self-audit using `LLM-API-Key-Proxy` telemetry on VPS-40.
+2. Three external anonymized audits recruited from r/LocalLLaMA and dev
+   Discords.
+3. A writeup and a "book a free audit" CTA.
 
 ## Style rules for whoever continues
 
