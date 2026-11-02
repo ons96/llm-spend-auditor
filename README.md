@@ -63,7 +63,8 @@ scrapes AA, rebuilds the export, tests, and commits only when something moved.
 
 ## Get an audit
 
-Free, no accounts: open an [audit
+Free: open an [audit
 request](https://github.com/ons96/llm-spend-auditor/issues/new?template=audit-request.md)
-with monthly token counts and your current model. Do not send API keys, prompts
-or customer data; the numbers are enough.
+with monthly token counts and your current model. Requests use GitHub issues, so
+you need a free GitHub account to open one; the auditor itself needs none. Do
+not send API keys, prompts or customer data; the numbers are enough.
