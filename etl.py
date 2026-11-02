@@ -51,8 +51,12 @@ def fetch_prices(offline: bool = False, refresh: bool = False) -> dict:
 
 
 def base_model(key: str) -> str:
-    """'openrouter/anthropic/claude-sonnet-5' -> 'claude-sonnet-5'."""
-    return key.split("/", 1)[1] if "/" in key else key
+    """'openrouter/anthropic/claude-sonnet-5' -> 'claude-sonnet-5'.
+
+    Last segment, not first: multi-hop keys exist and the model name is always
+    the tail, which is also what the AA slugs use.
+    """
+    return key.rsplit("/", 1)[-1]
 
 
 def tags_for(inp_m, free, ctx, aa) -> str:

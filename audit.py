@@ -1,5 +1,8 @@
 """Weekend 2 audit engine: workload -> current monthly cost + cheaper alternatives.
 
+Quality comes from one column: aa_score (Artificial Analysis Intelligence Index),
+a single methodology applied to every model. That is what makes two models comparable.
+
 Usage:
   python3 audit.py                 # audit all presets, print table
   python3 audit.py --export        # also write data/prices.json for the static UI
@@ -14,10 +17,8 @@ PRICES_DB = os.path.join(ROOT, "data", "prices.db")
 PRESETS = os.path.join(ROOT, "data", "presets.json")
 PRICES_JSON = os.path.join(ROOT, "data", "prices.json")
 
-MIN_FLOOR = 50.0  # absolute score floor (coding or chat); below this a swap is not a credible claim
-MIN_COVERAGE = 2    # alternatives need >=2 benchmarks; single-benchmark scores are noise
-QUALITY_SLACK = 0.0 # alternatives must score >= current model
-MIN_COVERAGE = 2   # benchmarks behind a score; 1-benchmark scores are noise, not a claim
+EXPORT_COLS = ["model_id", "provider", "input_per_m", "output_per_m",
+               "is_free", "context_window", "aa_score", "tags"]
 
 
 def load_prices(db=PRICES_DB):
@@ -30,66 +31,72 @@ def cost(row, w):
     return row["input_per_m"] * w["monthly_input_m"] + row["output_per_m"] * w["monthly_output_m"]
 
 
-def score_col(w):
-    """Coding presets judged on coding score, everything else on reasoning/chat score."""
-    return "coding_score" if "coding" in w["needs"] else "chat_score"
-
-
 def audit(w, prices, top=3):
-    """Return dict(current_cost, current_provider, score_col, current_score, quality_floor,
-    alternatives=[cheapest models above floor], same_or_better=cheapest model scoring >= current).
+    """Return current monthly cost, its AA score, and cheaper paid models.
 
-    Free-tier rows are excluded: rate limits make them unusable at business volume.
+    Every alternative carries score_delta (AA points gained or lost). Showing the
+    delta is more honest than filtering on an arbitrary quality floor: the reader
+    decides whether 18 points are worth a 95% bill cut.
+
+    Free tiers are excluded: rate limits make them unusable at business volume.
     """
-    col = score_col(w)
     paid = [p for p in prices if not p["is_free"]]
     cur = [p for p in paid if p["model_id"] == w["current_model"]]
     if not cur:
         raise ValueError(f"no paid price rows for {w['current_model']!r}")
-    # median provider price = what a typical buyer pays; min() picked stale discount rows
-    # (e.g. gpt-4o at half list price on one reseller) and understated current spend.
+
+    # Median provider price = what a typical buyer pays. min() picked stale reseller
+    # discounts (e.g. gpt-4o at half list) and understated current spend.
     cur.sort(key=lambda p: cost(p, w))
     base = cur[len(cur) // 2]
     base_cost = cost(base, w)
-    scores = [p[col] for p in cur if p.get(col) is not None]
+
+    scores = [p["aa_score"] for p in cur if p["aa_score"] is not None]
     cur_score = max(scores) if scores else None
-    floor = max(MIN_FLOOR, (cur_score or 0) - QUALITY_SLACK)
-    strict = max(MIN_FLOOR, cur_score or 0)
+    if cur_score is None:
+        # No benchmark = no quality claim. Report spend, recommend nothing.
+        return {"current_cost": round(base_cost, 2), "current_provider": base["provider"],
+                "current_score": None, "quality_verified": False,
+                "alternatives": [], "same_or_better": None}
+
     best = {}
     for p in paid:
-        s = p.get(col)
-        if p["model_id"] == w["current_model"] or s is None or s < floor \
-                or (p.get("coverage") or 0) < MIN_COVERAGE:
+        if p["model_id"] == w["current_model"] or p["aa_score"] is None:
             continue
-        if not set(w["needs"]) <= set((p["tags"] or "").split(",")):
+        if not set(w.get("needs") or []) <= set((p["tags"] or "").split(",")):
             continue
         c = cost(p, w)
         if c < base_cost and (p["model_id"] not in best or c < best[p["model_id"]][0]):
             best[p["model_id"]] = (c, p)
-    ranked = sorted(best.values(), key=lambda t: t[0])
+    ranked = sorted(best.values(), key=lambda t: (t[0], -t[1]["aa_score"]))
+    # Two models at the same input/output price are the same offer; keep the better
+    # scorer so the list shows distinct tradeoffs instead of near-duplicates.
+    seen_px, deduped = set(), []
+    for c, p in ranked:
+        px = (p["input_per_m"], p["output_per_m"])
+        if px in seen_px:
+            continue
+        seen_px.add(px)
+        deduped.append((c, p))
+    ranked = deduped
 
     def fmt(c, p):
         return {"model_id": p["model_id"], "provider": p["provider"],
-                "monthly_cost": round(c, 2), "score": round(p[col], 1),
+                "monthly_cost": round(c, 2), "score": p["aa_score"],
+                "score_delta": p["aa_score"] - cur_score,
                 "savings_pct": round(100 * (1 - c / base_cost), 1) if base_cost else 0.0}
 
-    safe = next(((c, p) for c, p in ranked if p[col] >= strict), None)
-    return {
-        "current_cost": round(base_cost, 2),
-        "current_provider": base["provider"],
-        "score_col": col,
-        "current_score": round(cur_score, 1) if cur_score is not None else None,
-        "quality_floor": round(floor, 1),
-        "alternatives": [fmt(c, p) for c, p in ranked[:top]],
-        "same_or_better": fmt(*safe) if safe else None,
-    }
+    safe = next(((c, p) for c, p in ranked if p["aa_score"] >= cur_score), None)
+    return {"current_cost": round(base_cost, 2), "current_provider": base["provider"],
+            "current_score": cur_score, "quality_verified": True,
+            "alternatives": [fmt(c, p) for c, p in ranked[:top]],
+            "same_or_better": fmt(*safe) if safe else None}
 
 
 def export_json(prices, path=PRICES_JSON):
-    cols = ["model_id", "provider", "input_per_m", "output_per_m",
-            "is_free", "context_window", "coding_score", "chat_score", "coverage", "tags"]
     with open(path, "w") as f:
-        json.dump({"cols": cols, "rows": [[p[c] for c in cols] for p in prices]},
+        json.dump({"cols": EXPORT_COLS,
+                   "rows": [[p[c] for c in EXPORT_COLS] for p in prices]},
                   f, separators=(",", ":"))
 
 
@@ -98,9 +105,16 @@ if __name__ == "__main__":
     if "--export" in sys.argv:
         export_json(prices)
         print(f"wrote {PRICES_JSON} ({os.path.getsize(PRICES_JSON) // 1024} KB)")
+
+    def f(a):
+        if not a:
+            return "-"
+        return f"{a['model_id']} ${a['monthly_cost']} (-{a['savings_pct']}%, {a['score_delta']:+d}pts)"
+
     for w in json.load(open(PRESETS)):
         r = audit(w, prices)
-        f = lambda a: f"{a['model_id']} ${a['monthly_cost']} (-{a['savings_pct']}%, {a['score']})" if a else "none"
-        a = r["alternatives"][0] if r["alternatives"] else None
-        print(f"{w['id']:21} {w['current_model']:17} ${r['current_cost']:>8} "
-              f"[{r['current_score']}] cheapest: {f(a)} | same+: {f(r['same_or_better'])}")
+        print(f"{w['id']:21} {w['current_model']:22} ${r['current_cost']:>9} [{r['current_score']}]")
+        if not r["alternatives"]:
+            print(f"{'':21} already cheapest benchmarked model")
+        for a in r["alternatives"]:
+            print(f"{'':21} -> {f(a)}")

@@ -1,42 +1,47 @@
 import json
 import os
-import sqlite3
-import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-import etl  # noqa: E402
+import etl
 
 
 def test_tags():
-    assert etl.tags_for((1e-7, 4e-7, 0, 256000, 60.0)) == "cheap,long_context,benchmarked,coding"
-    assert etl.tags_for((5e-6, 1.5e-5, 0, 8000, None)) == ""
-    assert etl.tags_for((0, 0, 1, None, 20.0)) == "free,cheap,benchmarked"
+    assert etl.tags_for(0.1, 0, 256000, 60) == "cheap,long_context,scored"
+    assert etl.tags_for(5.0, 0, 8000, None) == ""
+    assert etl.tags_for(0.0, 1, None, 20) == "free,cheap,scored"
 
 
-def test_run(tmp_path):
-    src = tmp_path / "src.db"
-    db = sqlite3.connect(src)
-    db.execute("""create table model_providers (model_id, provider_name,
-        provider_model_id, input_cost_per_token, output_cost_per_token,
-        is_free_tier, context_window_tokens, mode, avg_agentic_coding_score,
-        avg_reasoning_chat_score, benchmark_coverage, last_updated)""")
-    db.executemany("insert into model_providers values (?,?,?,?,?,?,?,?,?,?,?,?)", [
-        ("m1", "p", "p/m1", 1e-6, 2e-6, 0, 128000, "chat", None, None, 0, "t"),
-        ("m2", "p", "p/m2", 0, 0, 1, 1000000, "chat", 70.0, 65.0, 2, "t"),
-        ("m3", "p", "p/m3", 1e-6, 2e-6, 0, 128000, "embedding", None, None, 0, "t"),
-        ("m4", "p", "p/m4", 0, 0, 0, 128000, "chat", None, None, 0, "t"),
-    ])
-    db.commit()
-    out = tmp_path / "out.db"
-    assert etl.run(str(src), str(out)) == (2, 2)
-    r = sqlite3.connect(out).execute(
-        "select input_per_m, tags from prices where model_id='m1'").fetchone()
-    assert r == (1.0, "")
+def test_base_model():
+    assert etl.base_model("openrouter/anthropic/claude-sonnet-5") == "claude-sonnet-5"
+    assert etl.base_model("gpt-4o") == "gpt-4o"
+
+
+def test_run(tmp_path, monkeypatch):
+    feed = {
+        "p/m1": {"mode": "chat", "input_cost_per_token": 1e-6,
+                 "output_cost_per_token": 2e-6, "max_input_tokens": 128000,
+                 "litellm_provider": "p"},
+        "p/m2": {"mode": "chat", "input_cost_per_token": 0,
+                 "output_cost_per_token": 0, "max_input_tokens": 1000000,
+                 "litellm_provider": "p"},
+        "p/m3": {"mode": "embedding", "input_cost_per_token": 1e-6,
+                 "output_cost_per_token": 0},
+        "p/m4": {"mode": "chat"},  # no prices -> dropped
+    }
+    monkeypatch.setattr(etl, "fetch_prices", lambda *a, **k: feed)
+    monkeypatch.setattr(etl, "load_aa", lambda: {"m2": 44})
+    monkeypatch.setattr(etl, "OUT_DB", str(tmp_path / "out.db"))
+
+    assert etl.run() == (2, 2, 1)  # embedding and price-less rows excluded, m2 scored
+
+    import sqlite3
+    rows = sqlite3.connect(etl.OUT_DB).execute(
+        "select model_id, input_per_m, tags from prices order by model_id").fetchall()
+    assert rows == [("m1", 1.0, ""), ("m2", 0.0, "free,cheap,long_context,scored")]
 
 
 def test_presets():
-    presets = json.load(open(os.path.join(ROOT, "data", "presets.json")))
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    presets = json.load(open(os.path.join(root, "data", "presets.json")))
     assert len(presets) == 10
     assert len({p["id"] for p in presets}) == 10
     for p in presets:
