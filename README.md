@@ -6,8 +6,9 @@ needs, and exactly how much quality each saving costs.
 Live: https://ons96.github.io/llm-spend-auditor/
 
 Status: Weekend 4 in progress. The static UI is live, the first real
-self-audit is published in `docs/self-audit-2026-11.md`, and the free-audit
-CTA is open. External audits are pending (see `QUESTIONS.md`).
+self-audit is published in `docs/self-audit-2026-11.md`, the writeup is in
+`docs/writeup.md`, and the free-audit CTA is open. External audits are pending
+(see `QUESTIONS.md`).
 
 ## Why another cost calculator
 
@@ -41,8 +42,12 @@ discounts that understate the bill.
     python3 -m pytest -q
 
 Opening `index.html` from the filesystem fails because browsers block `fetch`
-of local JSON; serve the folder instead. Node is only needed for the UI parity
-tests, and they skip when it is absent.
+of local JSON; serve the folder instead. Node is only needed for the tests: the
+Python parity test skips without it, and the browser smoke test is dev-only.
+
+    npm ci
+    npx playwright install chromium
+    npm run test:ui                 # presets, toggle, hash, mobile, dark, CTA
 
 ## Regenerate the dataset
 
@@ -68,3 +73,5 @@ request](https://github.com/ons96/llm-spend-auditor/issues/new?template=audit-re
 with monthly token counts and your current model. Requests use GitHub issues, so
 you need a free GitHub account to open one; the auditor itself needs none. Do
 not send API keys, prompts or customer data; the numbers are enough.
+
+Background on the method and its limits: [`docs/writeup.md`](docs/writeup.md).

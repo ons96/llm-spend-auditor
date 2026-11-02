@@ -1,47 +1,32 @@
-# Open questions
+# Decisions and open questions
 
-Choices I made autonomously are noted with their default. These need the
-owner's identity, accounts, or preference.
+Last updated 2026-11-02.
 
-## 1. External audits (Weekend 4, items 2-3)
+## Resolved by the owner, 2026-11-02
 
-Recruiting three anonymized audits from r/LocalLLaMA and dev Discords requires
-posting from your accounts and answering replies as you. That is not something
-an agent should do on your behalf, so it is not done.
+1. **Provider names stay private.** The self-audit aggregates them out and no
+   document names a provider. Keep it that way.
+2. **Weekly refresh commits to `master`** and redeploys Pages automatically. A
+   pull request is the fallback if review ever becomes necessary.
+3. **Contact channel is GitHub issues.** There is no email alias, so the CTA
+   stays on the issue template.
+4. **The self-audit publishes exact call counts, token volumes and the date
+   window** at aggregate level, with no provider names. Keep it.
+5. **The broader writeup lives in `docs/writeup.md`** in this repo, not on an
+   external blog.
 
-Default taken: the free-audit CTA and the issue template are live, so requests
-can arrive without any posting. If you want proactive recruitment, post the
-self-audit link yourself and point people at the audit request template.
+## Open: three external audits
 
-## 2. Provider names in the self-audit
+What it means: the plan asks for audits of three other people's workloads, with
+identifying details removed, to show the method works beyond my own gateway.
+Getting them requires asking in communities (r/LocalLLaMA, dev Discords) from an
+account that belongs to the owner. An agent cannot do that without pretending to
+be the owner, so it is not done.
 
-`docs/self-audit-2026-11.md` aggregates by model and omits the 76 provider ids,
-which include private free-tier services. Publishing them could expose your
-routing setup.
+What is ready: the free-audit CTA and issue template on the page, the reply
+template in `docs/outreach.md`, and the audit itself. Once a request arrives, the
+audit is one copied link away.
 
-Default taken: omitted. If you are fine publishing them, the writeup can name
-the top three providers, but nothing in the argument needs it.
-
-## 3. Weekly refresh commits straight to master
-
-`.github/workflows/refresh-data.yml` runs weekly, tests, and pushes data
-changes to `master`, which redeploys Pages. That is the no-review option.
-
-Default taken: direct commit. Switch to a pull request if you would rather
-approve price/quality changes before they go live.
-
-## 4. Contact channel for the CTA
-
-The CTA uses GitHub issues because they are free, public and need no server or
-email address from me.
-
-Default taken: issues. If you have an audit alias, add it to the CTA and the
-issue template so non-GitHub users can reach you.
-
-## 5. Publishing self-audit volume numbers
-
-The writeup publishes your own call counts, token volumes and model ids. They
-describe your infrastructure usage, not customer data, and no prompts were read.
-
-Default taken: published at aggregate level. Say if you want the exact counts
-rounded or the date window shortened.
+What is needed: post `docs/outreach.md` from your account, or forward requests
+you receive. If an agent should post, it needs an account and an explicit
+instruction naming the channel; otherwise intake stays inbound-only.
