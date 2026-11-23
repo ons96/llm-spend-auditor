@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -72,6 +73,14 @@ def tags_for(inp_m, free, ctx, aa) -> str:
     return ",".join(tags)
 
 
+# AA puts the reasoning effort in the slug ("-max", "-max-default-fallback").
+# That word never names a different model, so it is safe to strip when looking
+# for the price-feed id. Model and version tokens are never in this set.
+EFFORT_TOKENS = {"max", "high", "xhigh", "medium", "low", "minimal",
+                 "default", "fallback", "thinking", "reasoning",
+                 "preview", "latest"}
+
+
 def load_aa() -> dict:
     if not os.path.exists(AA_JSON):
         return {}
@@ -79,26 +88,64 @@ def load_aa() -> dict:
         return {k: v["aa_index"] for k, v in json.load(f)["models"].items()}
 
 
+def score_key_variants(slug: str) -> list[str]:
+    """Price-feed ids that could be the same model as one AA slug, best first.
+
+    Two spelling differences exist, both mechanical:
+      effort suffix  claude-opus-5-5-max-default-fallback -> claude-opus-5-5
+      version dots   gpt-6-2-astra                         -> gpt-6.2-astra
+    """
+    stripped, cur = [slug], slug
+    while True:
+        parts = cur.split("-")
+        if len(parts) < 2 or parts[-1] not in EFFORT_TOKENS:
+            break
+        cur = "-".join(parts[:-1])
+        stripped.append(cur)
+    return stripped + [re.sub(r"(?<=\d)-(?=\d)", ".", s) for s in stripped]
+
+
+def aa_scores(aa: dict, price_ids) -> dict:
+    """Map price-feed model ids to AA scores, most specific spelling first.
+
+    A slug binds to at most one id: the first variant the feed actually carries.
+    Unscored ids simply never appear, so the report keeps making no claim about
+    them instead of inheriting a neighbouring model's score.
+    """
+    ids = set(price_ids)
+    scores = {}
+    for slug, score in aa.items():
+        if not isinstance(score, (int, float)):
+            continue
+        for cand in score_key_variants(slug):
+            if cand in ids:
+                scores[cand] = max(score, scores.get(cand, score))
+                break
+    return scores
+
+
 def run(offline: bool = False, refresh: bool = False):
     """Rebuild prices.db. Returns (rows, distinct_models, aa_matched)."""
     feed = fetch_prices(offline, refresh)
-    aa = load_aa()
-    rows, matched = [], set()
+    priced = []
     for key, v in feed.items():
         if v.get("mode") not in CHAT_MODES:
             continue
         inp, outp = v.get("input_cost_per_token"), v.get("output_cost_per_token")
         if inp is None or outp is None:
             continue
-        mid = base_model(key)
         inp_m, out_m = round(inp * 1e6, 6), round(outp * 1e6, 6)
         free = 1 if (inp == 0 and outp == 0) else 0
         ctx = v.get("max_input_tokens") or v.get("max_tokens")
-        score = aa.get(mid)
-        if score is not None:
-            matched.add(mid)
-        rows.append((mid, v.get("litellm_provider") or "unknown", key, inp_m, out_m,
-                     free, ctx, score, tags_for(inp_m, free, ctx, score)))
+        priced.append((base_model(key), v.get("litellm_provider") or "unknown",
+                       key, inp_m, out_m, free, ctx))
+
+    # Scores attach to ids, not rows: one AA model scores every provider's row.
+    scores = aa_scores(load_aa(), {p[0] for p in priced})
+    rows = [(mid, prov, pid, inp_m, out_m, free, ctx,
+             scores.get(mid), tags_for(inp_m, free, ctx, scores.get(mid)))
+            for mid, prov, pid, inp_m, out_m, free, ctx in priced]
+    matched = {r[0] for r in rows if r[7] is not None}
 
     tmp = OUT_DB + ".tmp"
     if os.path.exists(tmp):
