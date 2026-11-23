@@ -40,26 +40,49 @@ def fetch(url: str = AA_URL, timeout: int = 45) -> bytes:
 
 
 def parse(html: bytes) -> list[dict]:
+    """Read the leaderboard table by header name, not by column position.
+
+    Artificial Analysis moves its columns around (as of 2026-11 the AA index
+    sits directly after the model name, where the scraper used to expect a
+    context window), so a positional parser silently yields zero rows.
+    """
     soup = BeautifulSoup(html, "lxml")
     table = soup.find("table")
     if table is None:
         raise ValueError("no leaderboard table found")
-    rows = []
+
+    rows: list[dict] = []
+    cols: dict[str, int] = {}
     for tr in table.find_all("tr"):
         cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
-        if len(cells) < 4 or cells[0] == "Model":
+        if not cells:
             continue
-        idx = cells[3].replace(",", "")
-        if not idx.isdigit():
+        if not cols:
+            lowered = [c.lower() for c in cells]
+            if "model" in lowered:
+                cols = {"model": lowered.index("model")}
+                for i, h in enumerate(lowered):
+                    if "intelligence" in h and "index" not in cols:
+                        cols["index"] = i
+                    elif "context" in h and "context" not in cols:
+                        cols["context"] = i
             continue
+
+        name = cells[cols["model"]] if cols["model"] < len(cells) else ""
+        if not name:
+            continue
+        idx_raw = cells[cols["index"]].replace(",", "") if cols.get("index", 99) < len(cells) else ""
+        if not idx_raw.isdigit():
+            continue
+        context = cells[cols["context"]] if cols.get("context", 99) < len(cells) else ""
         rows.append(
             {
-                "name": cells[0],
-                "slug": slug(cells[0]),
-                "variant": bool(re.search(r"\(", cells[0])),
-                "context": cells[1],
-                "creator": cells[2],
-                "aa_index": int(idx),
+                "name": name,
+                "slug": slug(name),
+                "variant": bool(re.search(r"\(|,", name)),
+                "context": context,
+                "creator": "",
+                "aa_index": int(idx_raw),
             }
         )
     return rows
