@@ -40,48 +40,62 @@ def fetch(url: str = AA_URL, timeout: int = 45) -> bytes:
 
 
 def parse(html: bytes) -> list[dict]:
-    """Read the leaderboard table by header name, not by column position.
+    """Parse the leaderboard table, tolerating either column order.
 
-    Artificial Analysis moves its columns around (as of 2026-11 the AA index
-    sits directly after the model name, where the scraper used to expect a
-    context window), so a positional parser silently yields zero rows.
+    Two layouts exist in the wild: the historical one (Model, Context, Creator,
+    AA Index) and the current site (Model, Artificial Analysis Intelligence,
+    Cost, Speed, Latency, Context). The current site also renamed the index
+    column, so a purely positional parser silently yields zero rows after a
+    redesign. Columns are therefore located by header name when the header
+    names an intelligence column, and by position otherwise.
     """
     soup = BeautifulSoup(html, "lxml")
     table = soup.find("table")
     if table is None:
         raise ValueError("no leaderboard table found")
 
+    cols: dict[str, int] | None = None
+    legacy: dict[str, int] | None = None
     rows: list[dict] = []
-    cols: dict[str, int] = {}
     for tr in table.find_all("tr"):
         cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
         if not cells:
             continue
-        if not cols:
+        if cols is None and legacy is None:
             lowered = [c.lower() for c in cells]
             if "model" in lowered:
-                cols = {"model": lowered.index("model")}
+                found = {"model": lowered.index("model")}
                 for i, h in enumerate(lowered):
-                    if "intelligence" in h and "index" not in cols:
-                        cols["index"] = i
-                    elif "context" in h and "context" not in cols:
-                        cols["context"] = i
+                    if ("intelligence" in h or "aa index" in h) and "index" not in found:
+                        found["index"] = i
+                    if "context" in h and "context" not in found:
+                        found["context"] = i
+                    if "creator" in h and "creator" not in found:
+                        found["creator"] = i
+                if "index" in found:
+                    cols = found
+                else:
+                    legacy = {"model": 0, "context": 1, "creator": 2, "index": 3}
             continue
 
-        name = cells[cols["model"]] if cols["model"] < len(cells) else ""
-        if not name:
+        spec = cols or legacy
+        if spec is None:
             continue
-        idx_raw = cells[cols["index"]].replace(",", "") if cols.get("index", 99) < len(cells) else ""
-        if not idx_raw.isdigit():
+        def cell(key: str) -> str:
+            i = spec.get(key)
+            return cells[i] if i is not None and i < len(cells) else ""
+
+        name = cell("model")
+        idx_raw = cell("index").replace(",", "")
+        if not name or not idx_raw.isdigit():
             continue
-        context = cells[cols["context"]] if cols.get("context", 99) < len(cells) else ""
         rows.append(
             {
                 "name": name,
                 "slug": slug(name),
                 "variant": bool(re.search(r"\(|,", name)),
-                "context": context,
-                "creator": "",
+                "context": cell("context"),
+                "creator": cell("creator"),
                 "aa_index": int(idx_raw),
             }
         )
