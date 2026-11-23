@@ -13,6 +13,8 @@ import subprocess
 
 import pytest
 
+import etl
+
 import audit
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -158,6 +160,10 @@ def test_shipped_export_matches_current_etl():
     ids = {row[0] for row in doc["rows"]}
     assert not [i for i in ids if "/" in i]
     aa = json.load(open(os.path.join(ROOT, "data", "aa_scores.json")))["models"]
-    scored = {row[0] for row in doc["rows"] if not row[4] and row[6] is not None}
-    assert scored <= set(aa), "exported scores must come from the committed AA scrape"
+    scored = {row[0]: row[6] for row in doc["rows"] if not row[4] and row[6] is not None}
+    # Ids need not equal AA slugs (AA appends effort suffixes and spells versions
+    # with dashes), so compare the score itself against the mapping the ETL uses.
+    expected = etl.aa_scores({k: v["aa_index"] for k, v in aa.items()}, set(scored))
+    assert all(expected.get(mid) == score for mid, score in scored.items()), \
+        "exported scores must come from the committed AA scrape"
     assert len(scored) >= 10, "scored models vanished from the export"

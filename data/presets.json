@@ -13,7 +13,7 @@
     "monthly_input_m": 200,
     "monthly_output_m": 40,
     "needs": [],
-    "current_model": "gpt-6-astra"
+    "current_model": "gpt-6.2-astra"
   },
   {
     "id": "agency-content",
@@ -21,7 +21,7 @@
     "monthly_input_m": 30,
     "monthly_output_m": 25,
     "needs": [],
-    "current_model": "claude-fable-5-1"
+    "current_model": "claude-fable-5-2"
   },
   {
     "id": "data-team-extraction",
@@ -67,7 +67,7 @@
     "needs": [
       "long_context"
     ],
-    "current_model": "gpt-6-astra"
+    "current_model": "gpt-6.2-astra"
   },
   {
     "id": "translation",
