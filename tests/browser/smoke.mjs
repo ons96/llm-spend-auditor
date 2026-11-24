@@ -130,14 +130,31 @@ async function runSuite(browser, engineName) {
       `${preset.id}: hash ${hash}`);
   }
 
-  // Full list toggle: gpt-6-astra has more than three cheaper scored options.
-  const big = { current_model: "gpt-6-astra", monthly_input_m: 200,
-                monthly_output_m: 40, needs: [] };
-  const bigExpected = SpendAudit.audit(big, rows, 500);
-  check(bigExpected.alternatives.length > 3, "toggle fixture has too few options");
-  await page.fill("#model", big.current_model);
-  await page.fill("#tokens-in", String(big.monthly_input_m));
-  await page.fill("#tokens-out", String(big.monthly_output_m));
+  // Full list toggle: some scored model must have more than three cheaper
+  // options, so the toggle exists at all. The model is picked from the snapshot
+  // rather than hardcoded: AA renames its slugs (gpt-6-astra became
+  // gpt-6.2-astra on 2026-11-23), and a stale id turns this into an
+  // "unscored model" test that never reaches the toggle.
+  const big = (() => {
+    let best = null;
+    const seen = new Set();
+    for (const row of rows) {
+      if (row.is_free || row.aa_score === null || seen.has(row.model_id)) continue;
+      seen.add(row.model_id);
+      const work = { current_model: row.model_id, monthly_input_m: 200,
+                     monthly_output_m: 40, needs: [] };
+      const expected = SpendAudit.audit(work, rows, 500);
+      if (expected.alternatives && (!best || expected.alternatives.length > best.expected.alternatives.length)) {
+        best = { work, expected };
+      }
+    }
+    return best;
+  })();
+  check(Boolean(big) && big.expected.alternatives.length > 3, "toggle fixture has too few options");
+  const bigExpected = big.expected;
+  await page.fill("#model", big.work.current_model);
+  await page.fill("#tokens-in", String(big.work.monthly_input_m));
+  await page.fill("#tokens-out", String(big.work.monthly_output_m));
   await page.waitForTimeout(200);
   check((await table(page)).length === 4, "toggle: collapsed rows before click");
   const toggle = page.locator('[data-action="toggle-all"]');
@@ -181,7 +198,16 @@ async function runSuite(browser, engineName) {
   check(await shared.page.inputValue("#model") === "minimax-m3", "hash: model");
   check(await shared.page.inputValue("#preset") === "translation", "hash: preset");
   const sharedRows = await table(shared.page);
-  check(sharedRows.length === 2 && sharedRows[1].delta === "+17 pts",
+  // Compare against the engine instead of a frozen "+17 pts": the price/scores
+  // snapshot refreshes weekly, so a literal delta is a stale assertion waiting
+  // to fail. What matters is that the restored page renders the computed row.
+  const translationExpected = SpendAudit.audit(
+    presets.find((p) => p.id === "translation"), rows, 500);
+  const firstAlt = translationExpected.alternatives[0];
+  const firstDelta = (firstAlt.score_delta > 0 ? "+" : "") + firstAlt.score_delta + " pts";
+  check(sharedRows.length === 1 + Math.min(3, translationExpected.alternatives.length),
+    "hash: translation rows " + sharedRows.length);
+  check(sharedRows[1] && sharedRows[1].delta === firstDelta,
     "hash: translation alternative " + JSON.stringify(sharedRows[1]));
   check(shared.errors.length === 0, "hash errors: " + shared.errors.join(" | "));
   await shared.page.close();

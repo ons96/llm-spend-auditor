@@ -1,8 +1,28 @@
 # Handoff - LLM Spend Auditor
 
-Last updated 2026-11-02. Weekends 1-3 are complete and deployed. Weekend 4 is
+Last updated 2026-11-24. Weekends 1-3 are complete and deployed. Weekend 4 is
 in progress: the self-audit, writeup and CTA are done; the three external
 audits need the owner's accounts (see `QUESTIONS.md`).
+
+### 2026-11-24: browser smoke test repaired
+
+The `ui-check` workflow had failed on every commit since 2026-11-23 with
+`locator.innerText: Timeout 30000ms exceeded`. Cause: the test hardcoded model
+ids that the 2026-11-23 ETL change (`755b1ef`) renamed, so the toggle fixture
+selected an unscored model, the page rendered its "no AA score" notice, and the
+test waited 30 s for a toggle that was never going to exist. Two assertions in
+the same test were also frozen to the old snapshot (a literal `+17 pts` delta
+and a two-row translation table). The fixtures now derive from the snapshot and
+from `audit.js`, which is what the test is supposed to compare against.
+
+```
+npm ci && npx playwright install chromium   # local; CI installs chromium+firefox+webkit
+UI_BROWSERS=chromium npm run test:ui        # UI smoke ok (chromium): 10 presets, ...
+python3 -m pytest -q                        # 34 passed, 1 skipped
+```
+
+Do not fix this class of failure by raising the Playwright timeout: the page
+was right and the expectation was stale.
 Live: https://ons96.github.io/llm-spend-auditor/
 
 Repo: https://github.com/ons96/llm-spend-auditor (public, branch `master`)
@@ -24,7 +44,8 @@ normalized index and shows the quality delta next to every dollar figure.
 The full history is in git; run `git log --oneline -10` from the repo root
 rather than trusting a hash list copied into this file.
 
-35 Python tests pass, plus a committed browser smoke test on three engines.
+34 Python tests pass (1 skipped), plus a committed browser smoke test on three
+engines.
 Run from the repo root:
 
 ```
@@ -215,6 +236,13 @@ Do not silently revert these. Each one cost a debugging cycle.
     the delta in both states, and the toggle never changes the audit math.
 
 21. **The browser test checks wiring, the node test checks the math.**
+    Fixtures inside it are derived from `data/prices.json` and `audit.js`, never
+    hardcoded model ids or frozen deltas: AA renames slugs (`gpt-6-astra` became
+    `gpt-6.2-astra` on 2026-11-23) and the weekly refresh moves every score, so
+    a literal fixture turns a wiring test red for a data reason. See the
+    2026-11-24 note above for what that cost.
+    
+    Original note:
     `tests/browser/smoke.mjs` drives real Chromium over all 10 presets, the
     toggle, error paths, hash restore, mobile overflow, dark mode and CTA
     prefill. Do not replace it with a second parity test, and do not let the
